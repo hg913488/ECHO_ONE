@@ -22,7 +22,7 @@ macOS 14+ &nbsp;·&nbsp; Apple Silicon (M1+) &nbsp;·&nbsp; Free & open source
 
 <br>
 
-**[→ echo-one-app.vercel.app](https://echo-one-app.vercel.app)**
+**[→ echooneapp.vercel.app](https://echooneapp.vercel.app)**
 
 </div>
 
