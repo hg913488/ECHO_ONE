@@ -1,0 +1,62 @@
+name: EchoOne
+options:
+  bundleIdPrefix: com.goelstudio
+  deploymentTarget:
+    macOS: "14.0"
+  xcodeVersion: "16.0"
+
+packages:
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit.git
+    from: "0.16.0"
+  FluidAudio:
+    url: https://github.com/FluidInference/FluidAudio.git
+    from: "0.13.6"
+  LLM.swift:
+    url: https://github.com/obra/LLM.swift.git
+    branch: main
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle.git
+    from: "2.6.0"
+
+targets:
+  EchoOne:
+    type: application
+    platform: macOS
+    configFiles:
+      Debug: Config/Signing.xcconfig
+      Release: Config/Signing.xcconfig
+    sources:
+      - EchoOne
+    settings:
+      base:
+        INFOPLIST_FILE: EchoOne/Info.plist
+        CODE_SIGN_ENTITLEMENTS: EchoOne/EchoOne.entitlements
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        PRODUCT_BUNDLE_IDENTIFIER: com.goelstudio.echoone
+        ENABLE_APP_SANDBOX: NO
+        CODE_SIGN_ALLOW_ENTITLEMENTS_MODIFICATION: YES
+        ENABLE_HARDENED_RUNTIME: NO
+    dependencies:
+      - package: WhisperKit
+      - package: FluidAudio
+      - package: LLM.swift
+        product: LLM
+      - package: Sparkle
+    entitlements:
+      path: EchoOne/EchoOne.entitlements
+      properties:
+        com.apple.security.device.audio-input: true
+
+  EchoOneTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources:
+      - EchoOneTests
+    dependencies:
+      - target: EchoOne
+    settings:
+      base:
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/EchoOne.app/Contents/MacOS/EchoOne"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+        GENERATE_INFOPLIST_FILE: YES

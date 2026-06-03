@@ -1,0 +1,42 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Models (large binary files)
+Resources/models/
+
+# Secrets
+.env
+.env.*
+Config/LocalSigning.xcconfig
+EchoOne/Secrets.swift
+
+# macOS
+.DS_Store
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Profiling/coverage data
+*.profraw
+*.profdata
+
+# Logs
+*.log
+docs
+!docs/
+docs/*
+!docs/index.html
+!docs/media/
+!docs/media/**
+!docs/superpowers/
+docs/superpowers/*
+!docs/superpowers/specs/
+!docs/superpowers/specs/**
+!docs/superpowers/plans/
+!docs/superpowers/plans/**
+.superpowers/
+inspo/
