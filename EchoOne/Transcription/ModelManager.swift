@@ -96,6 +96,10 @@ final class ModelManager: ObservableObject {
         } catch {
             self.error = error
             self.state = .error
+            // TEMP DIAGNOSTIC — capture the real load error (debugLogger is unwired on this branch)
+            let diag = "EchoOne model load FAILED for \(modelName)\nlocalized: \(error.localizedDescription)\ndescription: \(String(describing: error))\nreflecting: \(String(reflecting: error))\n"
+            try? diag.write(toFile: "/tmp/echoone-model-debug.log", atomically: true, encoding: .utf8)
+            NSLog("ECHOONE_MODEL_FAIL %@", diag)
             debugLogger?(.model, "Speech model \(modelName) failed to load: \(error.localizedDescription)")
         }
     }
@@ -615,7 +619,10 @@ final class ModelManager: ObservableObject {
                 let cacheDir = AsrModels.defaultCacheDirectory(for: .v3)
                 try? FileManager.default.removeItem(at: cacheDir)
             case .qwen3AsrInt8:
-                break // Qwen3 cache cleanup handled by FluidAudio internally
+                if #available(macOS 15, iOS 18, *) {
+                    let cacheDir = Qwen3AsrModels.defaultCacheDirectory(variant: .int8)
+                    try? FileManager.default.removeItem(at: cacheDir)
+                }
             }
         }
     }

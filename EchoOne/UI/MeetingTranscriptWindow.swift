@@ -21,6 +21,7 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
     var onAskQuestion: ((_ question: String, _ context: String) async -> String)?
+    var onSelectCleanupModel: ((LocalCleanupModelKind) -> Void)?
     var shouldFloatWhileRecording: () -> Bool = { false }
 
     private(set) var windowState: MeetingWindowState?
@@ -43,6 +44,7 @@ final class MeetingTranscriptWindowController: NSObject, NSWindowDelegate {
         state.onStopRecording = onStopRecording
         state.onGenerateSummary = onGenerateSummary
         state.onAskQuestion = onAskQuestion
+        state.onSelectCleanupModel = onSelectCleanupModel
         state.onRecordingStateChanged = { [weak self] in
             self?.updateWindowLevel()
         }
@@ -189,6 +191,7 @@ final class MeetingWindowState: ObservableObject {
     var onStartRecording: ((_ name: String, _ detectedMeeting: DetectedMeeting?) -> MeetingSession?)?
     var onStopRecording: ((MeetingSession) -> Void)?
     var onGenerateSummary: ((MeetingTranscript) -> Void)?
+    var onSelectCleanupModel: ((LocalCleanupModelKind) -> Void)?
 
     var activeTab: OpenMeetingTab? {
         tabs.first { $0.id == activeTabID }
@@ -963,6 +966,18 @@ struct MeetingTabContentView: View {
             } else if tab.transcript.segments.isEmpty {
                 Text("No transcript to summarize.").font(.callout).foregroundColor(.secondary).padding(.vertical, 40)
             } else {
+                if let summaryError = tab.transcript.summaryError {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundColor(.orange)
+                            .font(.callout)
+                        Text(summaryError)
+                            .font(.callout)
+                            .foregroundColor(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .padding(.bottom, 4)
+                }
                 summaryStats
             }
         }
@@ -1030,6 +1045,11 @@ struct MeetingTabContentView: View {
                         }
                         .labelsHidden()
                         .frame(maxWidth: 200)
+                        .onChange(of: selectedModelKind) { _, newValue in
+                            if let kind = LocalCleanupModelKind(rawValue: newValue) {
+                                state.onSelectCleanupModel?(kind)
+                            }
+                        }
                     }
 
                     // Prompt editor

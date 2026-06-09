@@ -22,6 +22,17 @@ struct MenuBarView: View {
                     Button("Stop Meeting") {
                         appState.stopMeetingTranscription()
                     }
+                } else {
+                    Button("Start Meeting") {
+                        appState.startMeetingNow()
+                    }
+                }
+            }
+
+            if appState.formFillBetaEnabled {
+                Divider()
+                Button("Fill Form (beta)") {
+                    appState.fillFrontmostForm()
                 }
             }
 

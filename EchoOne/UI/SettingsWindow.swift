@@ -380,7 +380,16 @@ struct SettingsView: View {
     private func downloadModel(_ row: RuntimeModelRow) {
         if row.id.hasPrefix("cleanup-") {
             if let kind = TextCleanupManager.cleanupModels.first(where: { "cleanup-\($0.fileName)" == row.id })?.kind {
-                Task { await appState.textCleanupManager.loadModel(kind: kind) }
+                let manager = appState.textCleanupManager
+                // Downloading a model doesn't make it active. If the current active cleanup model
+                // isn't on disk, adopt the one being downloaded so it actually gets used.
+                let shouldSelect = !manager.isModelDownloaded(manager.selectedCleanupModelKind)
+                Task {
+                    await manager.loadModel(kind: kind)
+                    if shouldSelect {
+                        manager.selectedCleanupModelKind = kind
+                    }
+                }
             }
         } else {
             // Select and load the requested model (triggers download if not cached)
@@ -682,6 +691,13 @@ struct SettingsView: View {
                         }
                     }
             }
+
+            FormFillSettingsCard(
+                enabled: Binding(
+                    get: { appState.formFillBetaEnabled },
+                    set: { appState.formFillBetaEnabled = $0 }
+                )
+            )
         }
     }
 
@@ -1611,6 +1627,15 @@ struct SettingsView: View {
                         Text("Keeps the current meeting window above other windows only while an active meeting is recording.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
+
+                        Toggle(
+                            "Open folder when meeting ends",
+                            isOn: $appState.openMeetingFolderOnEnd
+                        )
+
+                        Text("Reveals the saved transcript in Finder as soon as a meeting finishes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                 }
             }
@@ -1933,6 +1958,56 @@ private struct SettingsCard<Content: View>: View {
             RoundedRectangle(cornerRadius: 16, style: .continuous)
                 .stroke(Color.white.opacity(0.07), lineWidth: 0.5)
         )
+    }
+}
+
+/// BETA — editor for the form-fill profile. Keys mirror `FormFiller.FieldKind.defaultsKey`.
+private struct FormFillSettingsCard: View {
+    @Binding var enabled: Bool
+
+    @AppStorage("formFill_fullName") private var fullName = ""
+    @AppStorage("formFill_email") private var email = ""
+    @AppStorage("formFill_phone") private var phone = ""
+    @AppStorage("formFill_address") private var address = ""
+    @AppStorage("formFill_city") private var city = ""
+    @AppStorage("formFill_state") private var state = ""
+    @AppStorage("formFill_zip") private var zip = ""
+    @AppStorage("formFill_company") private var company = ""
+    @AppStorage("formFill_website") private var website = ""
+
+    var body: some View {
+        SettingsCard("Form Fill (beta)") {
+            VStack(alignment: .leading, spacing: 16) {
+                Toggle("Enable form fill", isOn: $enabled)
+                Text("Adds a \u{201C}Fill Form (beta)\u{201D} item to the menu bar that fills the frontmost window\u{2019}s text fields from the details below. Heuristic \u{2014} works best on simple native and web forms. Password fields are always skipped.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                if enabled {
+                    Group {
+                        labeledField("Full name", text: $fullName)
+                        labeledField("Email", text: $email)
+                        labeledField("Phone", text: $phone)
+                        labeledField("Address", text: $address)
+                        labeledField("City", text: $city)
+                        labeledField("State", text: $state)
+                        labeledField("ZIP / Postcode", text: $zip)
+                        labeledField("Company", text: $company)
+                        labeledField("Website", text: $website)
+                    }
+                }
+            }
+        }
+    }
+
+    private func labeledField(_ title: String, text: Binding<String>) -> some View {
+        HStack {
+            Text(title)
+                .frame(width: 120, alignment: .leading)
+                .foregroundStyle(.secondary)
+            TextField("", text: text)
+                .textFieldStyle(.roundedBorder)
+        }
     }
 }
 

@@ -71,8 +71,10 @@ class AppState: ObservableObject {
     @AppStorage("preferredLanguage") var preferredLanguage: String = "auto"
     @AppStorage("meetingTranscriptEnabled") var meetingTranscriptEnabled: Bool = false
     @Published var showWhatsNew = false
-    @AppStorage("meetingAutoDetectEnabled") var meetingAutoDetectEnabled: Bool = true
+    @AppStorage("meetingAutoDetectEnabled") var meetingAutoDetectEnabled: Bool = false
     @AppStorage("meetingWindowFloatsWhileRecording") var meetingWindowFloatsWhileRecording: Bool = true
+    @AppStorage("openMeetingFolderOnEnd") var openMeetingFolderOnEnd: Bool = true
+    @AppStorage("formFillBetaEnabled") var formFillBetaEnabled: Bool = false
     @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.defaultPrompt
     @AppStorage("pauseMediaWhileRecording") var pauseMediaWhileRecording: Bool = true
     @Published private(set) var pushToTalkChord: KeyChord
@@ -587,6 +589,15 @@ class AppState: ObservableObject {
         }
 
         do {
+            // Start audio capture FIRST so the engine begins recording immediately and
+            // no leading audio is clipped. Session/diarization setup (which can spin up a
+            // coordinator model) then runs after capture is already live — it only feeds
+            // the live preview; the final transcript uses the full buffer regardless.
+            audioRecorder.onConvertedAudioChunk = nil
+            mediaPlaybackController.pauseIfPlaying()
+            audioRecorder.targetDeviceID = selectedInputDeviceIDProvider()
+            try audioRecorder.startRecording()
+
             await prepareRecordingSessionIfNeeded()
             if cleanupEnabled && canAttemptCleanup && frontmostWindowContextEnabled {
                 recordingOCRPrefetch.start(customWords: ocrCustomWords)
@@ -602,9 +613,6 @@ class AppState: ObservableObject {
             } else {
                 textCleanupManager.cancelPromptPrefill()
             }
-            mediaPlaybackController.pauseIfPlaying()
-            audioRecorder.targetDeviceID = selectedInputDeviceIDProvider()
-            try audioRecorder.startRecording()
             soundEffects.playStart()
             liveTranscriptionPreview = ""
             overlay.onStopTapped = { [weak self] in self?.stopRecordingIfActive() }
@@ -999,6 +1007,11 @@ class AppState: ObservableObject {
                 return "Could not answer — download the Qwen 3 8B model in Settings > Models for best results."
             }
         }
+        controller.onSelectCleanupModel = { [weak self] kind in
+            guard let self else { return }
+            self.textCleanupManager.selectedCleanupModelKind = kind
+            Task { await self.textCleanupManager.loadModel(kind: kind) }
+        }
         return controller
     }()
     private let meetingDetector = MeetingDetector()
@@ -1080,6 +1093,20 @@ class AppState: ObservableObject {
         )
     }
 
+    /// Starts a meeting transcription immediately (no auto-detection, no consent prompt).
+    /// Captures mic + system audio so it picks up the user even before anyone else speaks.
+    /// Invoked from the "Start Meeting" menu-bar item.
+    func startMeetingNow() {
+        guard activeMeetingSession == nil else { return }
+        startMeetingTranscription(meetingName: Self.defaultMeetingName(), skipConsent: true)
+    }
+
+    private static func defaultMeetingName() -> String {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "MMM d, h:mm a"
+        return "Meeting — \(formatter.string(from: Date()))"
+    }
+
     func showMeetingTranscriptWindow() {
         meetingTranscriptWindowController.show()
     }
@@ -1095,14 +1122,52 @@ class AppState: ObservableObject {
     func generateMeetingSummary(for transcript: MeetingTranscript) async {
         guard !transcript.segments.isEmpty else { return }
         transcript.isGeneratingSummary = true
+        transcript.summaryError = nil
         let generator = MeetingSummaryGenerator(cleanupManager: textCleanupManager)
-        let result = await generator.generateSummary(
-            transcript: transcript,
-            chunkPrompt: MeetingSummaryGenerator.defaultPrompt,
-            finalPrompt: meetingSummaryPrompt
-        )
-        transcript.summary = result
+        do {
+            let result = try await generator.generateSummary(
+                transcript: transcript,
+                chunkPrompt: MeetingSummaryGenerator.defaultPrompt,
+                finalPrompt: meetingSummaryPrompt
+            )
+            transcript.summary = result
+            if result == nil {
+                transcript.summaryError = "The model returned an empty summary. Try selecting a different cleanup model in Settings → Cleanup model."
+            }
+        } catch let error as CleanupBackendError {
+            switch error {
+            case .unavailable:
+                transcript.summaryError = "The cleanup model isn’t loaded. In Settings → Cleanup model, pick a model you’ve downloaded, then try again."
+            case .unusableOutput:
+                transcript.summaryError = "The model produced unusable output. Try a larger cleanup model (e.g. Qwen 3.5 4B) in Settings → Cleanup model."
+            }
+        } catch {
+            transcript.summaryError = "Summary failed: \(error.localizedDescription)"
+        }
         transcript.isGeneratingSummary = false
+    }
+
+    // MARK: - Form Fill (beta)
+
+    /// BETA — fills the frontmost window's form fields from the saved profile.
+    /// Invoked from the "Fill Form (beta)" menu-bar item.
+    func fillFrontmostForm() {
+        let result = FormFiller().fillFrontmostForm()
+        let alert = NSAlert()
+        if result.profileEmpty {
+            alert.messageText = "No form-fill profile yet"
+            alert.informativeText = "Add your details in Settings → Form Fill (beta), then try again."
+        } else if result.noFieldsFound {
+            alert.messageText = "No fillable fields found"
+            alert.informativeText = "Echo One couldn't find text fields in the frontmost window."
+        } else {
+            alert.messageText = "Filled \(result.filled) field\(result.filled == 1 ? "" : "s")"
+            var detail = ""
+            if result.skippedSecure > 0 { detail += "Skipped \(result.skippedSecure) password field(s). " }
+            if result.unmatched > 0 { detail += "\(result.unmatched) field(s) didn't match your profile." }
+            alert.informativeText = detail.isEmpty ? "All matched fields were filled." : detail
+        }
+        alert.runModal()
     }
 
     func stopMeetingTranscription() {
@@ -1133,8 +1198,24 @@ class AppState: ObservableObject {
 
     private func finishMeetingSession(_ session: MeetingSession, logPrefix: String) async {
         await session.stop()
+        if openMeetingFolderOnEnd {
+            revealMeetingInFinder(session)
+        }
         if activeMeetingSession === session {
             activeMeetingSession = nil
+        }
+    }
+
+    /// Opens Finder when a meeting ends — reveals the saved transcript file if available,
+    /// otherwise opens the meetings folder.
+    private func revealMeetingInFinder(_ session: MeetingSession) {
+        if let url = session.fileURL {
+            NSWorkspace.shared.selectFile(
+                url.path,
+                inFileViewerRootedAtPath: url.deletingLastPathComponent().path
+            )
+        } else {
+            NSWorkspace.shared.open(MeetingTranscriptSettings.effectiveSaveDirectory())
         }
     }
 

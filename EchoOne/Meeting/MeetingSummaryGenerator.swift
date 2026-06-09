@@ -44,7 +44,7 @@ final class MeetingSummaryGenerator {
         transcript: MeetingTranscript,
         chunkPrompt: String = MeetingSummaryGenerator.defaultPrompt,
         finalPrompt: String = MeetingSummaryGenerator.finalSummaryPrompt
-    ) async -> String? {
+    ) async throws -> String? {
         let segments = transcript.segments
         guard !segments.isEmpty else { return nil }
 
@@ -63,14 +63,14 @@ final class MeetingSummaryGenerator {
         if chunks.count == 1 {
             // Short meeting — summarize directly with the final prompt
             let input = "\(notesPrefix)Meeting transcript:\n\n\(chunks[0])"
-            return await runLLM(text: input, prompt: finalPrompt)
+            return try await runLLM(text: input, prompt: finalPrompt)
         }
 
         // Multi-chunk: summarize each chunk, then combine
         var chunkSummaries: [String] = []
         for (i, chunk) in chunks.enumerated() {
             let input = "Meeting transcript (part \(i + 1) of \(chunks.count)):\n\n\(chunk)"
-            if let summary = await runLLM(text: input, prompt: chunkPrompt) {
+            if let summary = try await runLLM(text: input, prompt: chunkPrompt) {
                 chunkSummaries.append(summary)
             }
         }
@@ -83,7 +83,7 @@ final class MeetingSummaryGenerator {
         }.joined(separator: "\n\n")
 
         let finalInput = "\(notesPrefix)Combined meeting notes:\n\n\(combined)"
-        return await runLLM(text: finalInput, prompt: finalPrompt)
+        return try await runLLM(text: finalInput, prompt: finalPrompt)
     }
 
     // MARK: - Private
@@ -110,15 +110,10 @@ final class MeetingSummaryGenerator {
         return chunks
     }
 
-    private func runLLM(text: String, prompt: String) async -> String? {
-        do {
-            let fullPrompt = "\(prompt)\n\n\(text)"
-            let result = try await cleanupManager.clean(text: fullPrompt, prompt: nil)
-            let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
-        } catch {
-            print("MeetingSummaryGenerator: LLM failed — \(error.localizedDescription)")
-            return nil
-        }
+    private func runLLM(text: String, prompt: String) async throws -> String? {
+        let fullPrompt = "\(prompt)\n\n\(text)"
+        let result = try await cleanupManager.clean(text: fullPrompt, prompt: nil)
+        let trimmed = result.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? nil : trimmed
     }
 }
