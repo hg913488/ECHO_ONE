@@ -829,7 +829,8 @@ struct MeetingTabContentView: View {
     private var contentTabBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 24) {
-                ForEach(MeetingContentTab.allCases, id: \.self) { ct in
+                // Summary tab hidden — feature scrapped (generation unreliable). Re-add `.summary` to re-enable.
+                ForEach(MeetingContentTab.allCases.filter { $0 != .summary }, id: \.self) { ct in
                     Button(action: { selectedContentTab = ct }) {
                         Text(ct.label)
                             .font(.system(size: 13, weight: selectedContentTab == ct ? .semibold : .regular))
@@ -963,9 +964,10 @@ struct MeetingTabContentView: View {
                 }.frame(maxWidth: .infinity).padding(.vertical, 60)
             } else if tab.transcript.summary != nil {
                 summaryStats
-            } else if tab.transcript.segments.isEmpty {
-                Text("No transcript to summarize.").font(.callout).foregroundColor(.secondary).padding(.vertical, 40)
             } else {
+                if tab.transcript.segments.isEmpty {
+                    Text("No transcript to summarize.").font(.callout).foregroundColor(.secondary).padding(.bottom, 4)
+                }
                 if let summaryError = tab.transcript.summaryError {
                     HStack(alignment: .top, spacing: 8) {
                         Image(systemName: "exclamationmark.triangle.fill")
@@ -1239,15 +1241,27 @@ struct MeetingSidebarView: View {
                                 HStack(spacing: 6) {
                                     Image(systemName: entry.isGranola ? "square.and.arrow.down.on.square" : "doc.text")
                                         .font(.system(size: 10))
-                                        .foregroundColor(isOpen ? Color.white.opacity(0.9) : (entry.isGranola ? .green.opacity(0.7) : .secondary))
+                                        .foregroundColor(isOpen ? Color.accentColor : (entry.isGranola ? .green.opacity(0.7) : .secondary))
                                     Text(entry.name)
                                         .font(.system(size: 12))
-                                        .foregroundColor(isOpen ? Color.white.opacity(0.9) : .primary)
+                                        .fontWeight(isOpen ? .semibold : .regular)
+                                        .foregroundColor(isOpen ? Color.accentColor : .primary)
                                         .lineLimit(1)
+                                    if isOpen {
+                                        Spacer(minLength: 4)
+                                        Circle()
+                                            .fill(Color.accentColor)
+                                            .frame(width: 5, height: 5)
+                                    }
                                 }
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .padding(.horizontal, 16)
                                 .padding(.vertical, 5)
+                                .background(
+                                    RoundedRectangle(cornerRadius: 5)
+                                        .fill(isOpen ? Color.accentColor.opacity(0.12) : Color.clear)
+                                        .padding(.horizontal, 8)
+                                )
                                 .contentShape(Rectangle())
                             }
                             .buttonStyle(.plain)

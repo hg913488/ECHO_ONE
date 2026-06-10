@@ -1120,7 +1120,10 @@ class AppState: ObservableObject {
     }
 
     func generateMeetingSummary(for transcript: MeetingTranscript) async {
-        guard !transcript.segments.isEmpty else { return }
+        guard !transcript.segments.isEmpty else {
+            transcript.summaryError = "There's no transcript to summarize yet. Record or import a meeting with spoken content first."
+            return
+        }
         transcript.isGeneratingSummary = true
         transcript.summaryError = nil
         let generator = MeetingSummaryGenerator(cleanupManager: textCleanupManager)
