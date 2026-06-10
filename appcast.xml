@@ -2,14 +2,30 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">
   <channel>
     <title>Echo One</title>
-    <link>https://github.com/hg913488/echo-one</link>
+    <link>https://github.com/hg913488/ECHO_ONE</link>
+    <!--
+      v2.4.0 TEMPLATE — uncomment and fill in AFTER building + signing the DMG.
+      build-dmg.sh prints the edSignature and the DMG byte size; paste both below, then commit.
+    <item>
+      <title>Version 2.4.0</title>
+      <sparkle:version>18</sparkle:version>
+      <sparkle:shortVersionString>2.4.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/hg913488/ECHO_ONE/releases/download/v2.4.0/EchoOne.dmg"
+        type="application/octet-stream"
+        sparkle:edSignature="PASTE_FROM_build-dmg.sh"
+        length="PASTE_DMG_BYTE_SIZE"
+      />
+    </item>
+    -->
     <item>
       <title>Version 2.3.0</title>
       <sparkle:version>17</sparkle:version>
       <sparkle:shortVersionString>2.3.0</sparkle:shortVersionString>
       <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
       <enclosure
-        url="https://github.com/hg913488/echo-one/releases/download/v2.3.0/EchoOne.dmg"
+        url="https://github.com/hg913488/ECHO_ONE/releases/download/v2.3.0/EchoOne.dmg"
         type="application/octet-stream"
         sparkle:edSignature="JUScCBfv0C9qvgNXWyMOSvTzwVkFpPo8mkXaayw8JPL8wJtX5ftu12/uLOlqpw1k/r/SYoGhNjxPUxW/tZ3+Cg=="
         length="24658159"

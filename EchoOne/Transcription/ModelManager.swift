@@ -96,10 +96,6 @@ final class ModelManager: ObservableObject {
         } catch {
             self.error = error
             self.state = .error
-            // TEMP DIAGNOSTIC — capture the real load error (debugLogger is unwired on this branch)
-            let diag = "EchoOne model load FAILED for \(modelName)\nlocalized: \(error.localizedDescription)\ndescription: \(String(describing: error))\nreflecting: \(String(reflecting: error))\n"
-            try? diag.write(toFile: "/tmp/echoone-model-debug.log", atomically: true, encoding: .utf8)
-            NSLog("ECHOONE_MODEL_FAIL %@", diag)
             debugLogger?(.model, "Speech model \(modelName) failed to load: \(error.localizedDescription)")
         }
     }
