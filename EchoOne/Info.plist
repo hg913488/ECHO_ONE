@@ -31,5 +31,9 @@
     <string>Echo One needs microphone access to record your voice for transcription.</string>
     <key>SUEnableAutomaticChecks</key>
     <false/>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/hg913488/ECHO_ONE/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>HWoGTqt4acBXXHLRnOwDlwVtp6+ZVgNoUZiFSvqMtM0=</string>
 </dict>
 </plist>

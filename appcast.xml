@@ -3,9 +3,6 @@
   <channel>
     <title>Echo One</title>
     <link>https://github.com/hg913488/ECHO_ONE</link>
-    <!--
-      v2.4.0 TEMPLATE — uncomment and fill in AFTER building + signing the DMG.
-      build-dmg.sh prints the edSignature and the DMG byte size; paste both below, then commit.
     <item>
       <title>Version 2.4.0</title>
       <sparkle:version>18</sparkle:version>
@@ -14,11 +11,10 @@
       <enclosure
         url="https://github.com/hg913488/ECHO_ONE/releases/download/v2.4.0/EchoOne.dmg"
         type="application/octet-stream"
-        sparkle:edSignature="PASTE_FROM_build-dmg.sh"
-        length="PASTE_DMG_BYTE_SIZE"
+        sparkle:edSignature="/QOE3Y5B3UVjFYaMCSlYQ/pLzudvmuTAOKyufgiW2su38n6nEiKbKCjjDvfIHzw/lOSk5bTa2XIEM2HQSHdlDg=="
+        length="28368112"
       />
     </item>
-    -->
     <item>
       <title>Version 2.3.0</title>
       <sparkle:version>17</sparkle:version>
