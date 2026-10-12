@@ -13,9 +13,13 @@ final class ModelManager: ObservableObject {
     private var fluidAudioModels: AsrModels?
     private var sortformerModels: SortformerModels?
     private var diarizerManager: DiarizerManager?
-    /// Stored as `Any?` because `Qwen3AsrManager` is `@available(macOS 15, *)`
-    /// and the app deploys to macOS 14. Cast at use sites under `#available`.
-    private var qwen3AsrManagerStorage: Any?
+    private var ctcModels: CtcModels?
+    private var vocabularyBoosting: VocabularyBoosting?
+    private var vocabularyPreparationTask: Task<Void, Never>?
+
+    /// Supplies the user's preferred transcriptions (Settings → Correction hints).
+    /// Parakeet-family models use them to bias recognition toward those terms.
+    var customVocabularyProvider: (() -> [String])?
 
     @Published private(set) var state: ModelManagerState = .idle
     @Published private(set) var downloadProgress: Double?
@@ -110,20 +114,7 @@ final class ModelManager: ObservableObject {
         case .whisperKit:
             try await loadWhisperModel(named: requestedModel.name)
         case .fluidAudio:
-            switch requestedModel.fluidAudioVariant {
-            case .qwen3AsrInt8:
-                if #available(macOS 15, iOS 18, *) {
-                    try await loadQwen3AsrModel(requestedModel)
-                } else {
-                    throw NSError(
-                        domain: "EchoOne.ModelManager",
-                        code: 501,
-                        userInfo: [NSLocalizedDescriptionKey: "Qwen3-ASR requires macOS 15 or later."]
-                    )
-                }
-            case .parakeetV3, .none:
-                try await loadFluidAudioModel(requestedModel)
-            }
+            try await loadFluidAudioModel(requestedModel)
         }
     }
 
@@ -149,30 +140,86 @@ final class ModelManager: ObservableObject {
                 let cleaned = SpeechTranscriber.removeArtifacts(from: text)
                 return cleaned.isEmpty ? nil : cleaned
             case .fluidAudio:
-                switch model.fluidAudioVariant {
-                case .qwen3AsrInt8:
-                    if #available(macOS 15, iOS 18, *) {
-                        guard let manager = qwen3AsrManagerStorage as? Qwen3AsrManager else { return nil }
-                        let text: String = try await manager.transcribe(
-                            audioSamples: audioBuffer,
-                            language: nil as String?
-                        )
-                        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        return cleaned.isEmpty ? nil : cleaned
-                    }
-                    return nil
-                case .parakeetV3, .none:
-                    guard let fluidAudioManager else { return nil }
-                    var decoderState = TdtDecoderState.make(decoderLayers: await fluidAudioManager.decoderLayerCount)
-                    let result = try await fluidAudioManager.transcribe(audioBuffer, decoderState: &decoderState)
-                    let cleaned = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return cleaned.isEmpty ? nil : cleaned
-                }
+                guard let fluidAudioManager else { return nil }
+                return try await Self.transcribeParakeet(
+                    audioBuffer,
+                    manager: fluidAudioManager,
+                    vocabularyBoosting: preparedVocabularyBoosting()
+                )
             }
         } catch {
             debugLogger?(.model, "Speech transcription failed for \(modelName): \(error.localizedDescription)")
             return nil
         }
+    }
+
+    /// Returns vocabulary boosting for the current preferred transcriptions if it is
+    /// already loaded. Otherwise starts loading it in the background and returns nil,
+    /// so dictation never waits on the ~97 MB CTC model download.
+    private func preparedVocabularyBoosting() -> VocabularyBoosting? {
+        let terms = Self.customVocabularyTerms(from: customVocabularyProvider?() ?? [])
+        guard terms.isEmpty == false else {
+            vocabularyBoosting = nil
+            return nil
+        }
+        if let vocabularyBoosting, vocabularyBoosting.terms == terms {
+            return vocabularyBoosting
+        }
+        guard vocabularyPreparationTask == nil else {
+            return nil
+        }
+
+        vocabularyPreparationTask = Task { [weak self] in
+            do {
+                let ctcModels: CtcModels
+                if let cached = self?.ctcModels {
+                    ctcModels = cached
+                } else {
+                    ctcModels = try await CtcModels.downloadAndLoad()
+                }
+                let vocabulary = CustomVocabularyContext(terms: terms.map { CustomVocabularyTerm(text: $0) })
+                let session = try await VocabularyBoostingSession(vocabulary: vocabulary, ctcModels: ctcModels)
+                self?.ctcModels = ctcModels
+                self?.vocabularyBoosting = VocabularyBoosting(
+                    terms: terms,
+                    vocabulary: vocabulary,
+                    ctcModels: ctcModels,
+                    session: session
+                )
+            } catch {
+                self?.debugLogger?(.model, "Custom vocabulary unavailable: \(error.localizedDescription)")
+            }
+            self?.vocabularyPreparationTask = nil
+        }
+        return nil
+    }
+
+    static func customVocabularyTerms(from preferredTranscriptions: [String]) -> [String] {
+        var seen = Set<String>()
+        return preferredTranscriptions
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false && seen.insert($0.lowercased()).inserted }
+    }
+
+    private nonisolated static func transcribeParakeet(
+        _ audioBuffer: [Float],
+        manager: AsrManager,
+        vocabularyBoosting: VocabularyBoosting?
+    ) async throws -> String? {
+        var decoderState = TdtDecoderState.make(decoderLayers: await manager.decoderLayerCount)
+        let result = try await manager.transcribe(audioBuffer, decoderState: &decoderState)
+        var text = result.text
+        if let vocabularyBoosting,
+           let tokenTimings = result.tokenTimings,
+           let rescored = await vocabularyBoosting.session.rescore(
+            text: text,
+            tokenTimings: tokenTimings,
+            audioSamples: audioBuffer
+           ) {
+            text = rescored.text
+        }
+        let cleaned = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        return cleaned.isEmpty ? nil : cleaned
     }
 
     func makeRecordingTranscriptionSession() -> RecordingTranscriptionSession? {
@@ -181,32 +228,22 @@ final class ModelManager: ObservableObject {
             return nil
         }
 
-        switch model.fluidAudioVariant {
-        case .qwen3AsrInt8:
-            if #available(macOS 15, iOS 18, *),
-               let manager = qwen3AsrManagerStorage as? Qwen3AsrManager {
-                return QwenRecordingTranscriptionSession(asrManager: manager)
-            }
+        guard let fluidAudioModels,
+              let fluidAudioManager else {
             return nil
-        case .parakeetV3, .none:
-            guard let fluidAudioModels,
-                  let fluidAudioManager else {
-                return nil
-            }
-            return SlidingWindowRecordingTranscriptionSession(
-                models: fluidAudioModels,
-                fullBufferTranscription: { audioBuffer in
-                    do {
-                        var decoderState = TdtDecoderState.make(decoderLayers: await fluidAudioManager.decoderLayerCount)
-                        let result = try await fluidAudioManager.transcribe(audioBuffer, decoderState: &decoderState)
-                        let cleaned = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        return cleaned.isEmpty ? nil : cleaned
-                    } catch {
-                        return nil
-                    }
-                }
-            )
         }
+        let boosting = preparedVocabularyBoosting()
+        return SlidingWindowRecordingTranscriptionSession(
+            models: fluidAudioModels,
+            vocabularyBoosting: boosting.map { ($0.vocabulary, $0.ctcModels) },
+            fullBufferTranscription: { audioBuffer in
+                try? await Self.transcribeParakeet(
+                    audioBuffer,
+                    manager: fluidAudioManager,
+                    vocabularyBoosting: boosting
+                )
+            }
+        )
     }
 
     func makeRecordingSessionCoordinator() async -> RecordingSessionCoordinator? {
@@ -390,18 +427,7 @@ final class ModelManager: ObservableObject {
             )
         }
 
-        let version: AsrModelVersion
-        switch fluidAudioVariant {
-        case .parakeetV3:
-            version = .v3
-        case .qwen3AsrInt8:
-            // Routed via loadQwen3AsrModel; should never reach here.
-            throw NSError(
-                domain: "EchoOne.ModelManager",
-                code: 500,
-                userInfo: [NSLocalizedDescriptionKey: "Unexpected variant for Parakeet loader"]
-            )
-        }
+        let version = Self.asrModelVersion(for: fluidAudioVariant)
 
         let models = try await AsrModels.downloadAndLoad(version: version) { progress in
             Task { @MainActor [weak self] in
@@ -413,38 +439,7 @@ final class ModelManager: ObservableObject {
         try await manager.loadModels(models)
         fluidAudioModels = models
         fluidAudioManager = manager
-    }
-
-    @available(macOS 15, iOS 18, *)
-    private func loadQwen3AsrModel(_ model: SpeechModelDescriptor) async throws {
-        guard let fluidAudioVariant = model.fluidAudioVariant else {
-            throw NSError(
-                domain: "EchoOne.ModelManager",
-                code: 500,
-                userInfo: [NSLocalizedDescriptionKey: "Missing FluidAudio variant for \(model.name)"]
-            )
-        }
-
-        let qwenVariant: Qwen3AsrVariant
-        switch fluidAudioVariant {
-        case .qwen3AsrInt8: qwenVariant = .int8
-        case .parakeetV3:
-            throw NSError(
-                domain: "EchoOne.ModelManager",
-                code: 500,
-                userInfo: [NSLocalizedDescriptionKey: "Unexpected variant for Qwen3-ASR loader"]
-            )
-        }
-
-        let directory = try await Qwen3AsrModels.download(variant: qwenVariant) { progress in
-            Task { @MainActor [weak self] in
-                self?.downloadProgress = progress.fractionCompleted
-            }
-        }
-        downloadProgress = nil
-        let manager = Qwen3AsrManager()
-        try await manager.loadModels(from: directory)
-        qwen3AsrManagerStorage = manager
+        _ = preparedVocabularyBoosting()
     }
 
     private func resetLoadedModels() {
@@ -457,7 +452,6 @@ final class ModelManager: ObservableObject {
         fluidAudioManager = nil
         fluidAudioModels = nil
         sortformerModels = nil
-        qwen3AsrManagerStorage = nil
         downloadProgress = nil
     }
 
@@ -610,16 +604,8 @@ final class ModelManager: ObservableObject {
             try? FileManager.default.removeItem(at: modelPath)
         case .fluidAudio:
             guard let fluidAudioVariant = model.fluidAudioVariant else { return }
-            switch fluidAudioVariant {
-            case .parakeetV3:
-                let cacheDir = AsrModels.defaultCacheDirectory(for: .v3)
-                try? FileManager.default.removeItem(at: cacheDir)
-            case .qwen3AsrInt8:
-                if #available(macOS 15, iOS 18, *) {
-                    let cacheDir = Qwen3AsrModels.defaultCacheDirectory(variant: .int8)
-                    try? FileManager.default.removeItem(at: cacheDir)
-                }
-            }
+            let cacheDir = AsrModels.defaultCacheDirectory(for: asrModelVersion(for: fluidAudioVariant))
+            try? FileManager.default.removeItem(at: cacheDir)
         }
     }
 
@@ -634,15 +620,15 @@ final class ModelManager: ObservableObject {
             guard let fluidAudioVariant = model.fluidAudioVariant else {
                 return false
             }
-            switch fluidAudioVariant {
-            case .parakeetV3:
-                return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: .v3), version: .v3)
-            case .qwen3AsrInt8:
-                if #available(macOS 15, iOS 18, *) {
-                    return Qwen3AsrModels.modelsExist(at: Qwen3AsrModels.defaultCacheDirectory(variant: .int8))
-                }
-                return false
-            }
+            let version = asrModelVersion(for: fluidAudioVariant)
+            return AsrModels.modelsExist(at: AsrModels.defaultCacheDirectory(for: version), version: version)
+        }
+    }
+
+    private static func asrModelVersion(for variant: FluidAudioModelVariant) -> AsrModelVersion {
+        switch variant {
+        case .parakeetV3: .v3
+        case .parakeetUltra: .ultra
         }
     }
 
@@ -654,6 +640,13 @@ final class ModelManager: ObservableObject {
     private static var whisperModelsRootDirectory: URL {
         whisperModelsDirectory.appendingPathComponent("models", isDirectory: true)
     }
+}
+
+struct VocabularyBoosting: Sendable {
+    let terms: [String]
+    let vocabulary: CustomVocabularyContext
+    let ctcModels: CtcModels
+    let session: VocabularyBoostingSession
 }
 
 /// Possible states for ModelManager.

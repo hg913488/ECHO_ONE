@@ -8,28 +8,22 @@ final class SpeechTranscriberTests: XCTestCase {
         let ids = SpeechModelCatalog.availableModels.map(\.id)
         let backends = SpeechModelCatalog.availableModels.map(\.backend)
 
-        let baseIDs = [
+        XCTAssertEqual(ids, [
             "openai_whisper-tiny.en",
             "openai_whisper-small.en",
             "openai_whisper-small",
             "fluid_parakeet-v3",
-        ]
-        let baseBackends: [SpeechBackendKind] = [
+            "fluid_parakeet-ultra",
+        ])
+        XCTAssertEqual(backends, [
             .whisperKit,
             .whisperKit,
             .whisperKit,
             .fluidAudio,
-        ]
+            .fluidAudio,
+        ])
 
-        if #available(macOS 15, iOS 18, *) {
-            XCTAssertEqual(ids, baseIDs + ["fluid_qwen3-asr-0.6b-int8"])
-            XCTAssertEqual(backends, baseBackends + [.fluidAudio])
-        } else {
-            XCTAssertEqual(ids, baseIDs)
-            XCTAssertEqual(backends, baseBackends)
-        }
-
-        XCTAssertEqual(SpeechModelCatalog.defaultModelID, "openai_whisper-small.en")
+        XCTAssertEqual(SpeechModelCatalog.defaultModelID, "fluid_parakeet-ultra")
     }
 
     func testFluidAudioSpeechModelsSupportSpeakerFiltering() {
@@ -37,40 +31,41 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertFalse(SpeechModelCatalog.whisperSmallEnglish.supportsSpeakerFiltering)
         XCTAssertFalse(SpeechModelCatalog.whisperSmallMultilingual.supportsSpeakerFiltering)
         XCTAssertTrue(SpeechModelCatalog.parakeetV3.supportsSpeakerFiltering)
-        XCTAssertTrue(SpeechModelCatalog.qwen3AsrInt8.supportsSpeakerFiltering)
+        XCTAssertTrue(SpeechModelCatalog.parakeetUltra.supportsSpeakerFiltering)
     }
 
-    func testQwen3AsrInt8Descriptor() {
-        let model = SpeechModelCatalog.qwen3AsrInt8
-        XCTAssertEqual(model.name, "fluid_qwen3-asr-0.6b-int8")
+    func testParakeetUltraDescriptor() {
+        let model = SpeechModelCatalog.parakeetUltra
+        XCTAssertEqual(model.name, "fluid_parakeet-ultra")
         XCTAssertEqual(model.backend, .fluidAudio)
-        XCTAssertEqual(model.fluidAudioVariant, .qwen3AsrInt8)
-        XCTAssertTrue(model.pickerLabel.contains("Qwen3-ASR 0.6B"))
-        XCTAssertTrue(model.pickerLabel.contains("int8"))
-        XCTAssertTrue(model.pickerLabel.contains("~900 MB"))
+        XCTAssertEqual(model.fluidAudioVariant, .parakeetUltra)
+        XCTAssertTrue(model.pickerLabel.contains("Parakeet Ultra"))
+        XCTAssertTrue(model.pickerLabel.contains("~630 MB"))
     }
 
-    func testQwen3ModelLookupIsAvailableOnSupportedOS() {
-        if #available(macOS 15, iOS 18, *) {
-            XCTAssertNotNil(SpeechModelCatalog.model(named: "fluid_qwen3-asr-0.6b-int8"))
-        } else {
-            XCTAssertNil(SpeechModelCatalog.model(named: "fluid_qwen3-asr-0.6b-int8"))
-        }
+    func testRemovedSpeechModelResolvesToDefault() {
+        XCTAssertNil(SpeechModelCatalog.model(named: "fluid_qwen3-asr-0.6b-int8"))
+        XCTAssertEqual(
+            SpeechModelCatalog.resolvedModelID("fluid_qwen3-asr-0.6b-int8"),
+            SpeechModelCatalog.defaultModelID
+        )
+        XCTAssertEqual(
+            SpeechModelCatalog.resolvedModelID("openai_whisper-small.en"),
+            "openai_whisper-small.en"
+        )
     }
 
-    // MARK: - ModelManager Tests
-
-    func testModelManagerInitialState() {
-        let manager = ModelManager()
-        XCTAssertEqual(manager.state, .idle)
-        XCTAssertFalse(manager.isReady)
-        XCTAssertNil(manager.whisperKit)
-        XCTAssertNil(manager.error)
+    func testCustomVocabularyTermsAreTrimmedAndDeduplicated() {
+        XCTAssertEqual(
+            ModelManager.customVocabularyTerms(from: ["  Hightide One ", "", "hightide one", "Dayframe", "   "]),
+            ["Hightide One", "Dayframe"]
+        )
+        XCTAssertEqual(ModelManager.customVocabularyTerms(from: []), [])
     }
 
     func testModelManagerDefaultModelName() {
         let manager = ModelManager()
-        XCTAssertEqual(manager.modelName, "openai_whisper-small.en")
+        XCTAssertEqual(manager.modelName, "fluid_parakeet-ultra")
     }
 
     func testModelManagerCustomModelName() {
@@ -116,16 +111,12 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertNil(result, "Should return nil when model is not loaded")
     }
 
-    // MARK: - Qwen3-ASR ModelManager Tests
+    // MARK: - Parakeet Ultra ModelManager Tests
 
-    func testModelManagerLoadsQwen3AsrModelThroughOverride() async throws {
-        guard #available(macOS 15, iOS 18, *) else {
-            throw XCTSkip("Qwen3-ASR requires macOS 15 or later.")
-        }
-
+    func testModelManagerLoadsParakeetUltraThroughOverride() async throws {
         var loadedDescriptors: [SpeechModelDescriptor] = []
         let manager = ModelManager(
-            modelName: "fluid_qwen3-asr-0.6b-int8",
+            modelName: "fluid_parakeet-ultra",
             modelLoadOverride: { descriptor in
                 loadedDescriptors.append(descriptor)
             },
@@ -137,18 +128,14 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertEqual(manager.state, .ready)
         XCTAssertNil(manager.error)
         XCTAssertEqual(loadedDescriptors.count, 1)
-        XCTAssertEqual(loadedDescriptors.first?.name, "fluid_qwen3-asr-0.6b-int8")
-        XCTAssertEqual(loadedDescriptors.first?.fluidAudioVariant, .qwen3AsrInt8)
+        XCTAssertEqual(loadedDescriptors.first?.name, "fluid_parakeet-ultra")
+        XCTAssertEqual(loadedDescriptors.first?.fluidAudioVariant, .parakeetUltra)
     }
 
-    func testModelManagerSurfacesQwen3LoadFailure() async throws {
-        guard #available(macOS 15, iOS 18, *) else {
-            throw XCTSkip("Qwen3-ASR requires macOS 15 or later.")
-        }
-
+    func testModelManagerSurfacesParakeetUltraLoadFailure() async throws {
         struct DownloadFailed: Error {}
         let manager = ModelManager(
-            modelName: "fluid_qwen3-asr-0.6b-int8",
+            modelName: "fluid_parakeet-ultra",
             modelLoadOverride: { _ in throw DownloadFailed() },
             loadRetryDelayOverride: {}
         )
@@ -159,11 +146,7 @@ final class SpeechTranscriberTests: XCTestCase {
         XCTAssertNotNil(manager.error)
     }
 
-    func testModelManagerSwitchesBetweenWhisperAndQwen3() async throws {
-        guard #available(macOS 15, iOS 18, *) else {
-            throw XCTSkip("Qwen3-ASR requires macOS 15 or later.")
-        }
-
+    func testModelManagerSwitchesBetweenWhisperAndParakeetUltra() async throws {
         var loadedNames: [String] = []
         let manager = ModelManager(
             modelName: "openai_whisper-small.en",
@@ -176,13 +159,13 @@ final class SpeechTranscriberTests: XCTestCase {
         await manager.loadModel()
         XCTAssertEqual(manager.state, .ready)
 
-        await manager.loadModel(name: "fluid_qwen3-asr-0.6b-int8")
+        await manager.loadModel(name: "fluid_parakeet-ultra")
 
         XCTAssertEqual(manager.state, .ready)
-        XCTAssertEqual(manager.modelName, "fluid_qwen3-asr-0.6b-int8")
+        XCTAssertEqual(manager.modelName, "fluid_parakeet-ultra")
         XCTAssertEqual(loadedNames, [
             "openai_whisper-small.en",
-            "fluid_qwen3-asr-0.6b-int8",
+            "fluid_parakeet-ultra",
         ])
     }
 }

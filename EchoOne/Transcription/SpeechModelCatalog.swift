@@ -7,7 +7,7 @@ enum SpeechBackendKind: Equatable {
 
 enum FluidAudioModelVariant: Equatable {
     case parakeetV3
-    case qwen3AsrInt8
+    case parakeetUltra
 }
 
 struct SpeechModelDescriptor: Identifiable, Equatable {
@@ -82,32 +82,25 @@ enum SpeechModelCatalog {
         fluidAudioVariant: .parakeetV3
     )
 
-    static let qwen3AsrInt8 = SpeechModelDescriptor(
-        name: "fluid_qwen3-asr-0.6b-int8",
-        pickerTitle: "Qwen3-ASR 0.6B",
-        variantName: "int8, 50+ languages",
-        sizeDescription: "~900 MB",
+    static let parakeetUltra = SpeechModelDescriptor(
+        name: "fluid_parakeet-ultra",
+        pickerTitle: "Parakeet Ultra",
+        variantName: "25 languages",
+        sizeDescription: "~630 MB",
         backend: .fluidAudio,
-        cachePathComponents: [],
-        fluidAudioVariant: .qwen3AsrInt8
+        cachePathComponents: ["FluidInference", "parakeet-ultra-coreml"],
+        fluidAudioVariant: .parakeetUltra
     )
 
-    /// Models that are always selectable on the current OS.
-    private static let baseModels: [SpeechModelDescriptor] = [
+    static let availableModels: [SpeechModelDescriptor] = [
         whisperTiny,
         whisperSmallEnglish,
         whisperSmallMultilingual,
         parakeetV3,
+        parakeetUltra,
     ]
 
-    static var availableModels: [SpeechModelDescriptor] {
-        if #available(macOS 15, iOS 18, *) {
-            return baseModels + [qwen3AsrInt8]
-        }
-        return baseModels
-    }
-
-    static let defaultModelID = whisperSmallEnglish.id
+    static let defaultModelID = parakeetUltra.id
 
     static var whisperModels: [SpeechModelDescriptor] {
         availableModels.filter { $0.backend == .whisperKit }
@@ -115,5 +108,11 @@ enum SpeechModelCatalog {
 
     static func model(named name: String) -> SpeechModelDescriptor? {
         availableModels.first { $0.name == name }
+    }
+
+    /// Maps a stored model ID onto one the catalog still offers, so a removed
+    /// model (e.g. Qwen3-ASR) falls back to the default instead of failing to load.
+    static func resolvedModelID(_ storedID: String) -> String {
+        model(named: storedID) == nil ? defaultModelID : storedID
     }
 }

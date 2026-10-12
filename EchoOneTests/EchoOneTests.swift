@@ -1659,11 +1659,7 @@ final class EchoOneTests: XCTestCase {
         XCTAssertFalse(entries[0].speakerFilteringUsedFallback)
     }
 
-    func testQwenRecordingUsesSpeakerFilteringSession() async throws {
-        guard #available(macOS 15, iOS 18, *) else {
-            throw XCTSkip("Qwen3-ASR requires macOS 15 or later.")
-        }
-
+    func testParakeetUltraRecordingUsesSpeakerFilteringSession() async throws {
         let defaults = try XCTUnwrap(UserDefaults(suiteName: #function))
         defaults.removePersistentDomain(forName: #function)
         let appState = AppState(
@@ -1675,10 +1671,10 @@ final class EchoOneTests: XCTestCase {
         var diarizationChunks: [[Float]] = []
         var factoryCallCount = 0
 
-        appState.speechModel = SpeechModelCatalog.qwen3AsrInt8.id
+        appState.speechModel = SpeechModelCatalog.parakeetUltra.id
         appState.ignoreOtherSpeakers = true
         appState.recordingTranscriptionSessionFactory = { descriptor in
-            XCTAssertEqual(descriptor, SpeechModelCatalog.qwen3AsrInt8)
+            XCTAssertEqual(descriptor, SpeechModelCatalog.parakeetUltra)
             return transcriptionSession
         }
         appState.recordingSessionCoordinatorFactory = {

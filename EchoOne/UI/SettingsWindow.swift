@@ -774,7 +774,7 @@ struct SettingsView: View {
                         prompt: "One likely phrase pair per line using probably wrong -> probably right"
                     )
 
-                    Text("Correction hints are added to the cleanup prompt; they are not applied as regexes or deterministic substitutions. Preferred transcriptions are also forwarded into OCR custom words.")
+                    Text("Correction hints are added to the cleanup prompt; they are not applied as regexes or deterministic substitutions. Preferred transcriptions are also forwarded into OCR custom words, and Parakeet speech models use them as a custom vocabulary (a one-time ~97 MB download; very short terms are ignored).")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)

@@ -80,11 +80,18 @@ final class SlidingWindowRecordingTranscriptionSession: RecordingTranscriptionSe
     convenience init(
         models: AsrModels,
         config: SlidingWindowAsrConfig = .streaming,
+        vocabularyBoosting: (vocabulary: CustomVocabularyContext, ctcModels: CtcModels)? = nil,
         fullBufferTranscription: (@Sendable ([Float]) async -> String?)? = nil
     ) {
         self.init(fullBufferTranscription: fullBufferTranscription) {
             let manager = SlidingWindowAsrManager(config: config)
             try await manager.loadModels(models)
+            if let vocabularyBoosting {
+                try? await manager.configureVocabularyBoosting(
+                    vocabulary: vocabularyBoosting.vocabulary,
+                    ctcModels: vocabularyBoosting.ctcModels
+                )
+            }
             try await manager.startStreaming(source: .microphone)
 
             return StreamingRecordingHandle(
@@ -252,132 +259,6 @@ final class SlidingWindowRecordingTranscriptionSession: RecordingTranscriptionSe
         }
 
         return buffer
-    }
-}
-
-@available(macOS 15, iOS 18, *)
-final class QwenRecordingTranscriptionSession: RecordingTranscriptionSession, @unchecked Sendable {
-    private static let streamingConfig = Qwen3StreamingConfig(
-        minAudioSeconds: 0.5,
-        chunkSeconds: 0.5,
-        maxAudioSeconds: 30.0,
-        language: nil
-    )
-
-    private let streamingManager: Qwen3StreamingManager
-    private let stateQueue = DispatchQueue(
-        label: "EchoOne.QwenRecordingTranscriptionSession.state"
-    )
-
-    private var latestTranscript: String?
-    private var isCancelled = false
-    private var isFinishing = false
-    private var appendTask: Task<Void, Never>?
-
-    let allowsBatchFallback = false
-    let supportsConcurrentFinalization = false
-
-    init(asrManager: Qwen3AsrManager) {
-        streamingManager = Qwen3StreamingManager(
-            asrManager: asrManager,
-            config: Self.streamingConfig
-        )
-    }
-
-    func appendAudioChunk(_ samples: [Float]) {
-        guard samples.isEmpty == false else {
-            return
-        }
-
-        let shouldProcess = stateQueue.sync { () -> Bool in
-            guard isCancelled == false, isFinishing == false else {
-                return false
-            }
-
-            let previousTask = appendTask
-            appendTask = Task {
-                _ = await previousTask?.value
-
-                let canProcess = stateQueue.sync { () -> Bool in
-                    isCancelled == false
-                }
-                guard canProcess else {
-                    return
-                }
-
-                let transcript = try? await streamingManager.addAudio(samples)?
-                    .transcript
-                    .trimmingCharacters(in: .whitespacesAndNewlines)
-
-                stateQueue.sync {
-                    guard self.isCancelled == false else {
-                        return
-                    }
-
-                    if let transcript, transcript.isEmpty == false {
-                        self.latestTranscript = transcript
-                    }
-                }
-            }
-            return true
-        }
-
-        guard shouldProcess else {
-            return
-        }
-    }
-
-    func finishTranscription() async -> String? {
-        let shouldFinish = stateQueue.sync { () -> Bool in
-            guard isCancelled == false else {
-                return false
-            }
-
-            isFinishing = true
-            return true
-        }
-
-        guard shouldFinish else {
-            return nil
-        }
-
-        let pendingTask = stateQueue.sync { appendTask }
-        _ = await pendingTask?.value
-
-        let finalTranscript = try? await streamingManager.finish()
-            .transcript
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-
-        return stateQueue.sync {
-            if let finalTranscript, finalTranscript.isEmpty == false {
-                latestTranscript = finalTranscript
-            }
-
-            guard let latestTranscript, latestTranscript.isEmpty == false else {
-                return nil
-            }
-
-            return latestTranscript
-        }
-    }
-
-    func cancel() {
-        let pendingTask = stateQueue.sync { () -> Task<Void, Never>? in
-            let shouldReset = isCancelled == false
-            isCancelled = true
-            isFinishing = true
-            latestTranscript = nil
-            return shouldReset ? appendTask : nil
-        }
-
-        guard let pendingTask else {
-            return
-        }
-
-        Task {
-            _ = await pendingTask.value
-            await streamingManager.reset()
-        }
     }
 }
 

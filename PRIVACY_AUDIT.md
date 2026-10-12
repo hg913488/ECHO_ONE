@@ -8,7 +8,7 @@ Paste the following prompt into Claude Code (or any AI assistant with codebase a
 
 > Review the Echo One codebase and confirm that all default features run 100% locally with no network calls. Specifically verify:
 >
-> 1. **Speech-to-text** — transcription runs entirely on-device (WhisperKit, FluidAudio, Qwen3-ASR). No audio is sent to any server.
+> 1. **Speech-to-text** — transcription runs entirely on-device (WhisperKit, FluidAudio Parakeet). No audio is sent to any server.
 > 2. **Text cleanup** — the local Qwen LLM cleans up transcriptions on-device. No text is sent to any API.
 > 3. **Audio recording** — mic and system audio capture use AVAudioEngine and ScreenCaptureKit only. No audio is streamed or uploaded.
 > 4. **Meeting transcription & summarization** — chunked transcription, markdown storage, and LLM summary generation all happen locally. No meeting content leaves the device.

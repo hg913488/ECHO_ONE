@@ -75,7 +75,7 @@ class AppState: ObservableObject {
     @AppStorage("meetingWindowFloatsWhileRecording") var meetingWindowFloatsWhileRecording: Bool = true
     @AppStorage("openMeetingFolderOnEnd") var openMeetingFolderOnEnd: Bool = true
     @AppStorage("formFillBetaEnabled") var formFillBetaEnabled: Bool = false
-    @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.defaultPrompt
+    @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.finalSummaryPrompt
     @AppStorage("pauseMediaWhileRecording") var pauseMediaWhileRecording: Bool = true
     @Published private(set) var pushToTalkChord: KeyChord
     @Published private(set) var toggleToTalkChord: KeyChord
@@ -303,6 +303,13 @@ class AppState: ObservableObject {
         )
 
         // Forward nested model manager state changes so SwiftUI refreshes settings rows in place.
+        // A stored model the catalog no longer offers (e.g. Qwen3-ASR) falls back to the default.
+        if SpeechModelCatalog.model(named: speechModel) == nil {
+            speechModel = SpeechModelCatalog.defaultModelID
+        }
+        modelManager.customVocabularyProvider = { [correctionStore = self.correctionStore] in
+            correctionStore.preferredTranscriptions
+        }
         modelStateObserver = self.modelManager.objectWillChange.sink { [weak self] _ in
             Task { @MainActor in
                 self?.objectWillChange.send()
@@ -1144,6 +1151,8 @@ class AppState: ObservableObject {
             case .unusableOutput:
                 transcript.summaryError = "The model produced unusable output. Try a larger cleanup model (e.g. Qwen 3.5 4B) in Settings → Cleanup model."
             }
+        } catch let error as CleanupTimeoutError {
+            transcript.summaryError = "\(error.localizedDescription) Try a smaller cleanup model in Settings → Cleanup model."
         } catch {
             transcript.summaryError = "Summary failed: \(error.localizedDescription)"
         }

@@ -11,7 +11,7 @@ packages:
     from: "0.16.0"
   FluidAudio:
     url: https://github.com/FluidInference/FluidAudio.git
-    from: "0.13.6"
+    from: "0.17.7"
   LLM.swift:
     url: https://github.com/obra/LLM.swift.git
     branch: main

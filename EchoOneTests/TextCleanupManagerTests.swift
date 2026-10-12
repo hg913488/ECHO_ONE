@@ -252,3 +252,101 @@ private func XCTAssertThrowsErrorAsync(
         errorHandler(error)
     }
 }
+
+@MainActor
+final class MeetingSummaryGeneratorTests: XCTestCase {
+    private func makeTranscript(lineCount: Int, notes: String = "") -> MeetingTranscript {
+        let transcript = MeetingTranscript(meetingName: "Planning")
+        transcript.notes = notes
+        for index in 0..<lineCount {
+            transcript.appendSegment(
+                TranscriptSegment(
+                    id: UUID(),
+                    speaker: index.isMultiple(of: 2) ? .me : .remote(name: "Sam"),
+                    startTime: TimeInterval(index * 7),
+                    endTime: TimeInterval(index * 7 + 6),
+                    text: "We agreed the launch moves to the fourteenth and Sam owns the pricing page copy."
+                )
+            )
+        }
+        return transcript
+    }
+
+    func testShortMeetingSendsSummaryPromptAsSystemPrompt() async throws {
+        var calls: [(text: String, systemPrompt: String)] = []
+        let generator = MeetingSummaryGenerator(contextTokenLimit: 2048) { text, systemPrompt in
+            calls.append((text, systemPrompt))
+            return "### Launch\n- Moves to the fourteenth"
+        }
+
+        let summary = try await generator.generateSummary(
+            transcript: makeTranscript(lineCount: 3, notes: "Pricing page"),
+            finalPrompt: "FINAL PROMPT"
+        )
+
+        XCTAssertEqual(summary, "### Launch\n- Moves to the fourteenth")
+        XCTAssertEqual(calls.count, 1)
+        XCTAssertEqual(calls[0].systemPrompt, "FINAL PROMPT")
+        XCTAssertFalse(calls[0].text.contains("FINAL PROMPT"))
+        XCTAssertTrue(calls[0].text.contains("User's notes during the meeting:\n\nPricing page"))
+        XCTAssertTrue(calls[0].text.contains("[00:07] Sam: We agreed"))
+    }
+
+    func testLongMeetingKeepsEveryCallInsideTheContextWindow() async throws {
+        let contextTokenLimit = 2048
+        let chunkPrompt = MeetingSummaryGenerator.defaultPrompt
+        let finalPrompt = MeetingSummaryGenerator.finalSummaryPrompt
+        var calls: [(text: String, systemPrompt: String)] = []
+        let generator = MeetingSummaryGenerator(contextTokenLimit: contextTokenLimit) { text, systemPrompt in
+            calls.append((text, systemPrompt))
+            return String(repeating: "- Launch moves to the fourteenth; Sam owns pricing copy.\n", count: 12)
+        }
+
+        let summary = try await generator.generateSummary(transcript: makeTranscript(lineCount: 400))
+
+        XCTAssertNotNil(summary)
+        XCTAssertGreaterThan(calls.count, 3)
+        XCTAssertEqual(calls.last?.systemPrompt, finalPrompt)
+        XCTAssertTrue(calls.dropLast().allSatisfy { $0.systemPrompt == chunkPrompt })
+        for call in calls {
+            let budget = MeetingSummaryGenerator.inputCharacterBudget(
+                contextTokenLimit: contextTokenLimit,
+                prompt: call.systemPrompt
+            )
+            XCTAssertLessThanOrEqual(call.text.count, budget)
+        }
+    }
+
+    func testInputBudgetLeavesRoomForTheAnswer() {
+        let small = MeetingSummaryGenerator.inputCharacterBudget(
+            contextTokenLimit: 2048,
+            prompt: MeetingSummaryGenerator.finalSummaryPrompt
+        )
+        let promptTokens = MeetingSummaryGenerator.finalSummaryPrompt.count / MeetingSummaryGenerator.charactersPerToken
+        XCTAssertLessThan(small / MeetingSummaryGenerator.charactersPerToken + promptTokens, 2048 - 384)
+
+        let large = MeetingSummaryGenerator.inputCharacterBudget(contextTokenLimit: 32768, prompt: "p")
+        XCTAssertEqual(large, MeetingSummaryGenerator.maxInputCharacters)
+    }
+
+    func testSplitIntoChunksHardSplitsOverlongLines() {
+        let text = String(repeating: "a", count: 250) + "\nshort line"
+        let chunks = MeetingSummaryGenerator.splitIntoChunks(text, limit: 100)
+
+        XCTAssertTrue(chunks.allSatisfy { $0.count <= 100 })
+        XCTAssertEqual(chunks.joined().replacingOccurrences(of: "\n", with: "").count, 250 + "short line".count)
+    }
+
+    func testSummaryErrorsPropagate() async {
+        let generator = MeetingSummaryGenerator(contextTokenLimit: 2048) { _, _ in
+            throw CleanupBackendError.unavailable
+        }
+
+        do {
+            _ = try await generator.generateSummary(transcript: makeTranscript(lineCount: 2))
+            XCTFail("Expected the cleanup error to propagate")
+        } catch {
+            XCTAssertEqual(error as? CleanupBackendError, .unavailable)
+        }
+    }
+}

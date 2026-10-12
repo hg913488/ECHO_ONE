@@ -829,8 +829,7 @@ struct MeetingTabContentView: View {
     private var contentTabBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 24) {
-                // Summary tab hidden — feature scrapped (generation unreliable). Re-add `.summary` to re-enable.
-                ForEach(MeetingContentTab.allCases.filter { $0 != .summary }, id: \.self) { ct in
+                ForEach(MeetingContentTab.allCases, id: \.self) { ct in
                     Button(action: { selectedContentTab = ct }) {
                         Text(ct.label)
                             .font(.system(size: 13, weight: selectedContentTab == ct ? .semibold : .regular))

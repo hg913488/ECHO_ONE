@@ -15,6 +15,14 @@ private extension CleanupModelProbeThinkingMode {
     }
 }
 
+struct CleanupTimeoutError: LocalizedError, Equatable {
+    let seconds: TimeInterval
+
+    var errorDescription: String? {
+        "The model took longer than \(Int(seconds)) seconds."
+    }
+}
+
 enum CleanupModelState: Equatable {
     case idle
     case downloading(kind: LocalCleanupModelKind, progress: Double)
@@ -194,6 +202,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
     }
 
     private static let timeoutSeconds: TimeInterval = 60.0
+    private static let summaryTimeoutSeconds: TimeInterval = 300.0
     private static let selectedCleanupModelDefaultsKey = "selectedCleanupModelKind"
     private static let systemPromptSentinel = "<|echo-one-system-prefill-split|>"
     private static let userInputSentinel = "<|echo-one-user-prefill-split|>"
@@ -277,7 +286,40 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
         objectWillChange.send()
     }
 
+    /// The largest downloaded model, used for meeting summaries where context size
+    /// matters more than speed. Falls back to the selected cleanup model.
+    var summaryModelKind: LocalCleanupModelKind {
+        Self.cleanupModels
+            .sorted { $0.maxTokenCount > $1.maxTokenCount }
+            .first { isModelDownloaded($0.kind) }?
+            .kind ?? selectedCleanupModelKind
+    }
+
+    func maxTokenCount(for modelKind: LocalCleanupModelKind) -> Int {
+        Int(descriptor(for: modelKind).maxTokenCount)
+    }
+
+    /// Long-form generation with an explicit system prompt (meeting summaries).
+    /// Unlike `clean`, a slow model reports a timeout instead of "unavailable".
+    func summarize(text: String, systemPrompt: String, modelKind: LocalCleanupModelKind) async throws -> String {
+        try await clean(
+            text: text,
+            prompt: systemPrompt,
+            modelKind: modelKind,
+            timeout: Self.summaryTimeoutSeconds
+        )
+    }
+
     func clean(text: String, prompt: String? = nil, modelKind: LocalCleanupModelKind? = nil) async throws -> String {
+        try await clean(text: text, prompt: prompt, modelKind: modelKind, timeout: Self.timeoutSeconds)
+    }
+
+    private func clean(
+        text: String,
+        prompt: String?,
+        modelKind: LocalCleanupModelKind?,
+        timeout: TimeInterval
+    ) async throws -> String {
         let requestedModelKind = modelKind ?? selectedCleanupModelKind
         await loadModel(kind: requestedModelKind)
 
@@ -295,7 +337,8 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
                 text: text,
                 prompt: activePrompt,
                 modelKind: requestedModelKind,
-                thinkingMode: .suppressed
+                thinkingMode: .suppressed,
+                timeout: timeout
             )
             let cleaned = result.rawOutput.trimmingCharacters(in: .whitespacesAndNewlines)
             if cleaned.isEmpty || cleaned == "..." {
@@ -321,6 +364,9 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
                 .cleanup,
                 "Local cleanup probe failed before producing usable output: \(error.localizedDescription)"
             )
+            if error is CancellationError, timeout != Self.timeoutSeconds {
+                throw CleanupTimeoutError(seconds: timeout)
+            }
             throw CleanupBackendError.unavailable
         }
     }
@@ -359,8 +405,10 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
         text: String,
         prompt: String,
         modelKind: LocalCleanupModelKind,
-        thinkingMode: CleanupModelProbeThinkingMode
+        thinkingMode: CleanupModelProbeThinkingMode,
+        timeout: TimeInterval? = nil
     ) async throws -> CleanupModelProbeRawResult {
+        let timeout = timeout ?? Self.timeoutSeconds
         await probeExecutionGate.acquire()
         do {
             if let probeExecutionOverride {
@@ -395,7 +443,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
                 let rawOutput: String
                 if let preparedCompletionInput {
-                    rawOutput = try await withTimeout(seconds: Self.timeoutSeconds) { [self] in
+                    rawOutput = try await withTimeout(seconds: timeout) { [self] in
                         await generateFromPreparedContext(
                             llm: llm,
                             completionInput: preparedCompletionInput,
@@ -403,7 +451,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
                         )
                     }
                 } else {
-                    rawOutput = try await withTimeout(seconds: Self.timeoutSeconds) {
+                    rawOutput = try await withTimeout(seconds: timeout) {
                         llm.useResolvedTemplate(systemPrompt: prompt)
                         llm.history = []
                         await llm.respond(to: text, thinking: thinkingMode.llmThinkingMode)
