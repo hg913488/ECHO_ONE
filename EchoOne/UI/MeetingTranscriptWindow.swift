@@ -403,7 +403,7 @@ struct MeetingRootView: View {
                         if let source = qaSourceFile {
                             Text(source)
                                 .font(.system(size: 10, weight: .medium))
-                                .foregroundColor(Color.white.opacity(0.9))
+                                .foregroundColor(Color.accentColor)
                         }
                         Text(qaAnswer)
                             .font(.system(size: 13))
@@ -433,7 +433,7 @@ struct MeetingRootView: View {
                     Button(action: { askAcrossMeetings() }) {
                         Image(systemName: "arrow.up.circle.fill")
                             .font(.system(size: 16))
-                            .foregroundColor(Color.white.opacity(0.9))
+                            .foregroundColor(Color.accentColor)
                     }
                     .buttonStyle(.plain)
                 }
@@ -516,7 +516,7 @@ struct MeetingRootView: View {
             Button(action: { state.showSidebar.toggle() }) {
                 Image(systemName: "sidebar.left")
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(state.showSidebar ? Color.white.opacity(0.9) : .secondary)
+                    .foregroundColor(state.showSidebar ? Color.accentColor : .secondary)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 7)
             }
@@ -544,13 +544,13 @@ struct MeetingRootView: View {
                     Button(action: { state.showNewTabView = true }) {
                         Image(systemName: "plus")
                             .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(state.showNewTabView ? Color.white.opacity(0.9) : .secondary)
+                            .foregroundColor(state.showNewTabView ? Color.accentColor : .secondary)
                             .padding(.horizontal, 12)
                             .padding(.vertical, 7)
                             .background(state.showNewTabView ? Color(nsColor: .textBackgroundColor) : Color.clear)
                             .overlay(alignment: .bottom) {
                                 if state.showNewTabView {
-                                    Rectangle().fill(Color.white.opacity(0.9)).frame(height: 2)
+                                    Rectangle().fill(Color.accentColor).frame(height: 2)
                                 }
                             }
                     }
@@ -580,7 +580,7 @@ struct MeetingRootView: View {
                 state.startNewNote()
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color.white.opacity(0.9))
+            .tint(Color.accentColor)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
@@ -619,7 +619,7 @@ private struct FileTabView: View {
         .background(isActive ? Color(nsColor: .textBackgroundColor) : Color.clear)
         .overlay(alignment: .bottom) {
             if isActive {
-                Rectangle().fill(Color.white.opacity(0.9)).frame(height: 2)
+                Rectangle().fill(Color.accentColor).frame(height: 2)
             }
         }
         .contentShape(Rectangle())
@@ -715,10 +715,10 @@ struct MeetingTabContentView: View {
                             if tab.transcript.importedFrom != nil {
                                 Text("Imported from \(tab.transcript.importedFrom!.capitalized)")
                                     .font(.system(size: 10, weight: .medium))
-                                    .foregroundColor(Color.white.opacity(0.9))
+                                    .foregroundColor(Color.accentColor)
                                     .padding(.horizontal, 8)
                                     .padding(.vertical, 2)
-                                    .background(Color.white.opacity(0.9).opacity(0.1))
+                                    .background(Color.accentColor.opacity(0.1))
                                     .cornerRadius(4)
                             }
                         }
@@ -833,11 +833,11 @@ struct MeetingTabContentView: View {
                     Button(action: { selectedContentTab = ct }) {
                         Text(ct.label)
                             .font(.system(size: 13, weight: selectedContentTab == ct ? .semibold : .regular))
-                            .foregroundColor(selectedContentTab == ct ? Color.white.opacity(0.9) : .secondary)
+                            .foregroundColor(selectedContentTab == ct ? Color.accentColor : .secondary)
                             .padding(.bottom, 10)
                             .overlay(alignment: .bottom) {
                                 if selectedContentTab == ct {
-                                    Rectangle().fill(Color.white.opacity(0.9)).frame(height: 2).offset(y: 1)
+                                    Rectangle().fill(Color.accentColor).frame(height: 2).offset(y: 1)
                                 }
                             }
                     }
@@ -874,14 +874,14 @@ struct MeetingTabContentView: View {
 
     private var noAudioWarning: some View {
         HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(Color.white.opacity(0.9)).font(.caption)
+            Image(systemName: "exclamationmark.triangle.fill").foregroundColor(Color.accentColor).font(.caption)
             Text("No audio detected. Check your microphone.").font(.caption)
             Spacer()
             Button("Open Settings") { state.onOpenSettings?() }
-                .font(.caption.weight(.medium)).buttonStyle(.borderedProminent).tint(Color.white.opacity(0.9)).controlSize(.small)
+                .font(.caption.weight(.medium)).buttonStyle(.borderedProminent).tint(Color.accentColor).controlSize(.small)
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
-        .background(Color.white.opacity(0.9).opacity(0.1))
+        .background(Color.accentColor.opacity(0.1))
     }
 
     // MARK: - Tab Content
@@ -953,7 +953,7 @@ struct MeetingTabContentView: View {
         VStack(alignment: .leading, spacing: 24) {
             if tab.isRecording {
                 VStack(spacing: 12) {
-                    Image(systemName: "sparkles").font(.system(size: 32)).foregroundColor(Color.white.opacity(0.9).opacity(0.4))
+                    Image(systemName: "sparkles").font(.system(size: 32)).foregroundColor(Color.accentColor.opacity(0.4))
                     Text("Summary will be generated when the meeting ends").font(.callout).foregroundColor(.secondary)
                 }.frame(maxWidth: .infinity).padding(.vertical, 60)
             } else if tab.transcript.isGeneratingSummary {
@@ -996,7 +996,7 @@ struct MeetingTabContentView: View {
                             Text("Regenerate")
                                 .font(.caption)
                         }
-                        .foregroundColor(Color.white.opacity(0.9))
+                        .foregroundColor(Color.accentColor)
                     }
                     .buttonStyle(.plain)
                     .disabled(tab.transcript.isGeneratingSummary)
@@ -1011,7 +1011,7 @@ struct MeetingTabContentView: View {
                         .foregroundColor(.white)
                         .padding(.horizontal, 12)
                         .padding(.vertical, 6)
-                        .background(Capsule().fill(Color.white.opacity(0.9)))
+                        .background(Capsule().fill(Color.accentColor))
                     }
                     .buttonStyle(.plain)
                     .disabled(tab.transcript.isGeneratingSummary || tab.transcript.segments.isEmpty)
@@ -1027,7 +1027,7 @@ struct MeetingTabContentView: View {
                         Text("Customize")
                             .font(.caption)
                     }
-                    .foregroundColor(showSummaryPrompt ? Color.white.opacity(0.9) : .secondary)
+                    .foregroundColor(showSummaryPrompt ? Color.accentColor : .secondary)
                 }
                 .buttonStyle(.plain)
             }
@@ -1319,7 +1319,7 @@ private struct ConsentDialogView: View {
             // Header
             Image(systemName: "mic.badge.xmark")
                 .font(.system(size: 36))
-                .foregroundColor(Color.white.opacity(0.9))
+                .foregroundColor(Color.accentColor)
                 .padding(.top, 8)
 
             Text("Let participants know")
@@ -1364,7 +1364,7 @@ private struct ConsentDialogView: View {
                         .foregroundColor(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.9)))
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.accentColor))
                 }
                 .buttonStyle(.plain)
 
@@ -1458,7 +1458,7 @@ struct TranscriptSegmentRow: View {
 
     private var speakerColor: Color {
         switch segment.speaker {
-        case .me: return Color.white.opacity(0.9)
+        case .me: return Color.accentColor
         case .remote: return .blue
         }
     }
