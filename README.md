@@ -6,7 +6,7 @@
 
 Your voice, on your Mac, going nowhere else.
 
-Hold **Control**, speak, release — transcribed and pasted directly into whatever you're typing in. Works in every app. No subscription, no cloud, no account.
+Hold **Command + Option** (the two keys right of the space bar), speak, release — transcribed and pasted directly into whatever you're typing in. Works in every app. No subscription, no cloud, no account.
 
 macOS 14+ &nbsp;·&nbsp; Apple Silicon (M1+) &nbsp;·&nbsp; Free & open source
 
@@ -30,7 +30,7 @@ macOS 14+ &nbsp;·&nbsp; Apple Silicon (M1+) &nbsp;·&nbsp; Free & open source
 
 ## What it does
 
-**Push-to-talk, anywhere** — hold Control, speak, release. Echo One transcribes and pastes directly into the focused text field. Slack, Notion, email, Terminal — anything with a cursor.
+**Push-to-talk, anywhere** — hold Command + Option, speak, release. That is the default shortcut (Right ⌘ + Right ⌥); change it in Settings. Echo One transcribes and pastes directly into the focused text field. Slack, Notion, email, Terminal — anything with a cursor.
 
 **Instruction mode** — hold Right Control and speak a command instead of dictation. Select text first and the instruction transforms it in place ("translate to French", "make this formal", "convert to bullet points"). No selection? New text is generated and pasted at the cursor.
 
