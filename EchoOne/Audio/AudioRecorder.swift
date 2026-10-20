@@ -12,8 +12,39 @@ final class AudioRecorder {
     /// Kept alive across recordings so AVFAudio does not have to re-run device
     /// discovery on every hotkey press. We only rebuild when the user explicitly
     /// changes the target input device or asks for an audio reset.
-    private var engine = AVAudioEngine()
+    private var engine = AVAudioEngine() {
+        didSet { observeConfigurationChanges() }
+    }
     private var configuredTargetDeviceID: AudioDeviceID?
+    /// Set when the input route or its format changes under the engine (AirPods
+    /// flip between 48 kHz and 24 kHz as apps open their mic). The next
+    /// recording rebuilds instead of starting a graph with stale formats.
+    private var needsRebuild = false
+    private var configurationObserver: NSObjectProtocol?
+
+    init() {
+        observeConfigurationChanges()
+    }
+
+    deinit {
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
+    }
+
+    private func observeConfigurationChanges() {
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: nil
+        ) { [weak self] _ in
+            print("AudioRecorder: engine configuration changed; rebuilding before next recording")
+            self?.needsRebuild = true
+        }
+    }
     private let bufferLock = NSLock()
     private let tapStateLock = NSLock()
 
@@ -127,8 +158,27 @@ final class AudioRecorder {
 
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
+        if needsRebuild {
+            rebuildEngine()
+        }
         applyTargetDeviceIfNeeded()
 
+        do {
+            try installTapAndStartEngine()
+        } catch {
+            // The long-lived engine goes stale when the input route changes
+            // after launch (headset plugged in, sample rate switched), and
+            // start() then fails with -10868. Rebuild once and retry.
+            print("AudioRecorder: engine start failed (\(error)); rebuilding engine and retrying")
+            engine.inputNode.removeTap(onBus: 0)
+            rebuildEngine()
+            applyTargetDeviceIfNeeded()
+            try installTapAndStartEngine()
+        }
+        onRecordingStarted?()
+    }
+
+    private func installTapAndStartEngine() throws {
         let inputNode = engine.inputNode
         // `inputFormat(forBus:)` reflects the bus's *actual* HW input format.
         // `outputFormat(forBus:)` is the downstream format and is the one that
@@ -164,7 +214,6 @@ final class AudioRecorder {
         }
 
         try engine.start()
-        onRecordingStarted?()
     }
 
     private var cachedConverter: AVAudioConverter?
@@ -174,6 +223,7 @@ final class AudioRecorder {
         engine.stop()
         engine = AVAudioEngine()
         configuredTargetDeviceID = nil
+        needsRebuild = false
     }
 
     private func applyTargetDeviceIfNeeded() {
