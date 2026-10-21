@@ -71,6 +71,13 @@ class AudioDeviceManager {
         defaults.set(uid, forKey: selectedInputDeviceUIDKey)
     }
 
+    /// Forgets the user's microphone choice so recording follows the system
+    /// default input (e.g. AirPods as soon as they connect).
+    static func clearSelectedInputDevice(defaults: UserDefaults = .standard) {
+        defaults.removeObject(forKey: selectedInputDeviceUIDKey)
+        defaults.removeObject(forKey: selectedInputDeviceIDKey)
+    }
+
     /// Returns the user's selected input device ID, or nil to use the system default.
     static func selectedInputDeviceID(
         defaults: UserDefaults = .standard,

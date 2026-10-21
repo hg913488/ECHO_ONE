@@ -341,7 +341,7 @@ struct SettingsView: View {
         .frame(minWidth: 880, minHeight: 660)
         .onAppear {
             inputDevices = AudioDeviceManager.listInputDevices()
-            selectedDeviceID = AudioDeviceManager.selectedInputDeviceID() ?? AudioDeviceManager.defaultInputDeviceID() ?? 0
+            selectedDeviceID = AudioDeviceManager.selectedInputDeviceID() ?? 0
             refreshScreenRecordingPermission()
             refreshRequiredPermissions()
             startPermissionPollingIfNeeded()
@@ -588,6 +588,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 18) {
                     SettingsField("Microphone") {
                         Picker("Microphone", selection: $selectedDeviceID) {
+                            Text("System default").tag(AudioDeviceID(0))
                             ForEach(inputDevices) { device in
                                 Text(device.name).tag(device.id)
                             }
@@ -595,7 +596,11 @@ struct SettingsView: View {
                         .labelsHidden()
                         .frame(maxWidth: 320, alignment: .leading)
                         .onChange(of: selectedDeviceID) { _, newValue in
-                            AudioDeviceManager.setSelectedInputDevice(newValue)
+                            if newValue == 0 {
+                                AudioDeviceManager.clearSelectedInputDevice()
+                            } else {
+                                AudioDeviceManager.setSelectedInputDevice(newValue)
+                            }
                             appState.resetAudioEngine()
                         }
                     }

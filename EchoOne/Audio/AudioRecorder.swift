@@ -19,7 +19,12 @@ final class AudioRecorder {
     /// Set when the input route or its format changes under the engine (AirPods
     /// flip between 48 kHz and 24 kHz as apps open their mic). The next
     /// recording rebuilds instead of starting a graph with stale formats.
-    private var needsRebuild = false
+    private var needsRebuild: Bool {
+        get { rebuildLock.lock(); defer { rebuildLock.unlock() }; return _needsRebuild }
+        set { rebuildLock.lock(); _needsRebuild = newValue; rebuildLock.unlock() }
+    }
+    private var _needsRebuild = false
+    private let rebuildLock = NSLock()
     private var configurationObserver: NSObjectProtocol?
 
     init() {
@@ -71,9 +76,11 @@ final class AudioRecorder {
 
     /// Reset the audio engine to pick up a newly selected input route.
     /// Call this after changing the microphone selection in Settings.
+    /// Only flags the rebuild: touching the engine here runs on the main thread,
+    /// and prepare() can block indefinitely while a Bluetooth headset is
+    /// switching profiles, freezing the whole UI. The next recording rebuilds.
     func resetForDeviceChange() {
-        rebuildEngine()
-        prewarm()
+        needsRebuild = true
     }
 
     static func serializeAudioBuffer(_ samples: [Float]) throws -> Data {
