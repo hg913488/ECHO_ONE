@@ -229,7 +229,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
         let storedKind = LocalCleanupModelKind(
             rawValue: defaults.string(forKey: Self.selectedCleanupModelDefaultsKey) ?? ""
-        ) ?? .qwen35_0_8b_q4_k_m
+        ) ?? .qwen35_2b_q4_k_m
         let initialKind = selectedCleanupModelKind ?? storedKind
         self.selectedCleanupModelKind = initialKind
         defaults.set(initialKind.rawValue, forKey: Self.selectedCleanupModelDefaultsKey)
@@ -288,8 +288,10 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
     /// The largest downloaded model, used for meeting summaries where context size
     /// matters more than speed. Falls back to the selected cleanup model.
+    /// Reversed first so that on a context-size tie the bigger model (listed later) wins.
     var summaryModelKind: LocalCleanupModelKind {
         Self.cleanupModels
+            .reversed()
             .sorted { $0.maxTokenCount > $1.maxTokenCount }
             .first { isModelDownloaded($0.kind) }?
             .kind ?? selectedCleanupModelKind

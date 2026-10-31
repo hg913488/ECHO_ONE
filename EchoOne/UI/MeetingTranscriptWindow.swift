@@ -672,7 +672,8 @@ struct MeetingTabContentView: View {
     @State private var showSearch = false
     @State private var showSummaryPrompt = false
     @AppStorage("meetingSummaryPrompt") private var summaryPrompt: String = MeetingSummaryGenerator.finalSummaryPrompt
-    @AppStorage("selectedCleanupModelKind") private var selectedModelKind: String = LocalCleanupModelKind.qwen35_0_8b_q4_k_m.rawValue
+    @AppStorage("selectedCleanupModelKind") private var selectedModelKind: String = LocalCleanupModelKind.qwen35_2b_q4_k_m.rawValue
+    @AppStorage("meetingSummariesEnabled") private var summariesEnabled: Bool = true
     @FocusState private var searchFocused: Bool
 
     var body: some View {
@@ -829,7 +830,7 @@ struct MeetingTabContentView: View {
     private var contentTabBar: some View {
         VStack(spacing: 0) {
             HStack(spacing: 24) {
-                ForEach(MeetingContentTab.allCases, id: \.self) { ct in
+                ForEach(MeetingContentTab.allCases.filter { summariesEnabled || $0 != .summary }, id: \.self) { ct in
                     Button(action: { selectedContentTab = ct }) {
                         Text(ct.label)
                             .font(.system(size: 13, weight: selectedContentTab == ct ? .semibold : .regular))
@@ -846,6 +847,11 @@ struct MeetingTabContentView: View {
                 Spacer()
             }
             Rectangle().fill(Color(nsColor: .separatorColor)).frame(height: 1)
+        }
+        .onChange(of: summariesEnabled) { _, enabled in
+            if !enabled && selectedContentTab == .summary {
+                selectedContentTab = .notes
+            }
         }
     }
 

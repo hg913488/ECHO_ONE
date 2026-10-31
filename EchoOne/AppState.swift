@@ -74,6 +74,7 @@ class AppState: ObservableObject {
     @AppStorage("meetingAutoDetectEnabled") var meetingAutoDetectEnabled: Bool = false
     @AppStorage("meetingWindowFloatsWhileRecording") var meetingWindowFloatsWhileRecording: Bool = true
     @AppStorage("openMeetingFolderOnEnd") var openMeetingFolderOnEnd: Bool = true
+    @AppStorage("meetingSummariesEnabled") var meetingSummariesEnabled: Bool = true
     @AppStorage("formFillBetaEnabled") var formFillBetaEnabled: Bool = false
     @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.finalSummaryPrompt
     @AppStorage("pauseMediaWhileRecording") var pauseMediaWhileRecording: Bool = true
@@ -1157,6 +1158,9 @@ class AppState: ObservableObject {
             transcript.summaryError = "Summary failed: \(error.localizedDescription)"
         }
         transcript.isGeneratingSummary = false
+        // The summary loaded a cleanup model; go back to what dictation needs
+        // (nothing when cleanup is off) so it doesn't stay in memory.
+        await refreshCleanupModelState()
     }
 
     // MARK: - Form Fill (beta)

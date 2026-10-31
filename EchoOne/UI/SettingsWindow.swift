@@ -283,6 +283,30 @@ struct SettingsView: View {
                     }
 
                     Spacer(minLength: 0)
+
+                    Button {
+                        NSApplication.shared.terminate(nil)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "power")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(Color.white.opacity(0.36))
+                                .frame(width: 18, alignment: .center)
+
+                            Text("Quit Echo One")
+                                .font(.system(size: 13))
+                                .foregroundStyle(Color.white.opacity(0.50))
+
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 9)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .keyboardShortcut("q")
+                    .padding(.bottom, 16)
                 }
             }
             .frame(minWidth: 220, idealWidth: 220, maxWidth: 220, maxHeight: .infinity)
@@ -1639,6 +1663,15 @@ struct SettingsView: View {
                         )
 
                         Text("Reveals the saved transcript in Finder as soon as a meeting finishes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Toggle(
+                            "Meeting summaries",
+                            isOn: $appState.meetingSummariesEnabled
+                        )
+
+                        Text("Writes a summary of each meeting with Qwen 3.5 2B (about 1.3 GB download). Uses memory only while writing.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }

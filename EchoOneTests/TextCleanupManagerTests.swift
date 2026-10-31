@@ -53,20 +53,20 @@ final class TextCleanupManagerTests: XCTestCase {
         )
     }
 
-    func testDefaultSelectionUsesVeryFastModel() {
+    func testDefaultSelectionUsesFastModel() {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
         let manager = TextCleanupManager(
             defaults: defaults,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
 
-        XCTAssertEqual(manager.selectedCleanupModelKind, .qwen35_0_8b_q4_k_m)
+        XCTAssertEqual(manager.selectedCleanupModelKind, .qwen35_2b_q4_k_m)
         XCTAssertEqual(
             manager.selectedModelKind(wordCount: 4, isQuestion: false),
-            .qwen35_0_8b_q4_k_m
+            .qwen35_2b_q4_k_m
         )
     }
 
