@@ -602,6 +602,11 @@ final class ModelManager: ObservableObject {
                 partialURL.appendingPathComponent(component, isDirectory: true)
             }
             try? FileManager.default.removeItem(at: modelPath)
+            // WhisperKit keeps the weights apart from the tokenizer folder above.
+            let weightsPath = whisperModelsRootDirectory
+                .appendingPathComponent("argmaxinc/whisperkit-coreml", isDirectory: true)
+                .appendingPathComponent(model.name, isDirectory: true)
+            try? FileManager.default.removeItem(at: weightsPath)
         case .fluidAudio:
             guard let fluidAudioVariant = model.fluidAudioVariant else { return }
             let cacheDir = AsrModels.defaultCacheDirectory(for: asrModelVersion(for: fluidAudioVariant))
