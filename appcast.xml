@@ -4,6 +4,18 @@
     <title>Echo One</title>
     <link>https://github.com/hg913488/ECHO_ONE</link>
     <item>
+      <title>Version 2.5.1</title>
+      <sparkle:version>20</sparkle:version>
+      <sparkle:shortVersionString>2.5.1</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+      <enclosure
+        url="https://github.com/hg913488/ECHO_ONE/releases/download/v2.5.1/EchoOne.dmg"
+        type="application/octet-stream"
+        sparkle:edSignature="ab/dDOypw06aw+tMKQyjJZs0l7CAgPqeWglq4EZ9nTR6HXYYAN1NfG/5QxE/nYQFIeMmWc9vt0+9DUeTuolLDA=="
+        length="43590515"
+      />
+    </item>
+    <item>
       <title>Version 2.5.0</title>
       <sparkle:version>19</sparkle:version>
       <sparkle:shortVersionString>2.5.0</sparkle:shortVersionString>
