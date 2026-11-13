@@ -81,3 +81,9 @@ Downloaded automatically on first use, cached locally. Pick yours in Settings.
 ![Models](./docs/media/models.png)
 
 Speech via [WhisperKit](https://github.com/argmaxinc/WhisperKit) and [FluidAudio](https://github.com/FluidInference/FluidAudio). Text cleanup and instruction mode via [LLM.swift](https://github.com/eastriverlee/LLM.swift). Updates via [Sparkle](https://sparkle-project.org/). MIT licensed.
+
+---
+
+## Credits
+
+Echo One is a fork of [Ghost Pepper](https://github.com/matthartman/ghost-pepper) by Matt Hartman (MIT). Licences for everything it is built on are in [Acknowledgements](EchoOne/Acknowledgements.txt).
