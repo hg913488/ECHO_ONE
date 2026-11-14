@@ -63,7 +63,7 @@ Don't trust me — point Claude at this repo and ask it to audit: [full privacy 
 ## Build & run
 
 ```bash
-git clone https://github.com/hg913488/echo-one.git
+git clone https://github.com/hg913488/ECHO_ONE.git
 open EchoOne.xcodeproj
 # Cmd+R to build and run
 ```
