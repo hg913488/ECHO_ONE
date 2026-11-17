@@ -9,7 +9,7 @@ Plus a voice for the Claude Code or Codex you already have.
 
 <br>
 
-[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg)
+<a href="https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg"><picture><source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/Download_for_Mac-f2f5f4?style=for-the-badge&logo=apple&logoColor=101417"><img src="https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Mac"></picture></a>
 
 ```bash
 brew install hg913488/tap/echo-one
@@ -44,6 +44,8 @@ No new account and no API key. It runs on the plan you already pay for.
 <br><br>
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./docs/media/readme/dictation-dark-sm.webp">
+  <source media="(max-width: 600px)" srcset="./docs/media/readme/dictation-light-sm.webp">
   <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/dictation-dark.webp">
   <img src="./docs/media/readme/dictation-light.webp" alt="And it types. Anywhere you can type. Hold, talk, let go: hold right Command + right Option and the words land at your cursor, in any app. Fillers out: um and uh are cut, and the punctuation goes in. Stays on your Mac: speech-to-text runs on your Mac, no Claude, no account. You say um hi Priya the drawings are basically done. It types: Hi Priya, the drawings are done.">
 </picture>
@@ -53,6 +55,8 @@ Slack, Notion, Mail, Terminal: wherever the cursor is. 25 languages with the def
 <br>
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./docs/media/readme/actions-dark-sm.webp">
+  <source media="(max-width: 600px)" srcset="./docs/media/readme/actions-light-sm.webp">
   <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/actions-dark.webp">
   <img src="./docs/media/readme/actions-light.webp" alt="Echo Actions. Quick jobs, done in about a second. Some things don't need an AI. Say one of these and a prewritten script on your Mac does it straight away. 33 come built in: dark mode, timer 5 minutes, battery, mute, volume to 40, lock screen, empty trash, open downloads, copy last screenshot, keep awake, Wi-Fi off, speed test, kill port 3000 and more.">
 </picture>
@@ -64,6 +68,8 @@ Add your own, one script file each. They use the same format as Raycast script c
 <br>
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./docs/media/readme/touch-dark-sm.webp">
+  <source media="(max-width: 600px)" srcset="./docs/media/readme/touch-light-sm.webp">
   <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/touch-dark.webp">
   <img src="./docs/media/readme/touch-light.webp" alt="What the Voice Agent can touch. Access: you choose what she can touch, from Ask only, Edit files, Sandbox to Full. Ask only reads files and searches the web to answer and can't change anything. Your agent: runs on the agent you already have, no API key needed. Private: dictation never leaves this Mac.">
 </picture>
@@ -79,6 +85,8 @@ It acts on your Mac from a few spoken words, and speech gets misheard. So it has
 <br>
 
 <picture>
+  <source media="(max-width: 600px) and (prefers-color-scheme: dark)" srcset="./docs/media/readme/looks-dark-sm.webp">
+  <source media="(max-width: 600px)" srcset="./docs/media/readme/looks-light-sm.webp">
   <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/looks-dark.webp">
   <img src="./docs/media/readme/looks-light.webp" alt="Voice Agent ring: three rings to pick from, Echo One, Original and Ember. Each one moves with her voice. Dictation mark: four colours for the mark, Bone, Teal, Ember and Dusk, shown above the Dock while you dictate.">
 </picture>
@@ -221,7 +229,7 @@ Echo One is a fork of [Ghost Pepper](https://github.com/matthartman/ghost-pepper
 
 <br>
 
-[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg)
+<a href="https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg"><picture><source media="(prefers-color-scheme: dark)" srcset="https://img.shields.io/badge/Download_for_Mac-f2f5f4?style=for-the-badge&logo=apple&logoColor=101417"><img src="https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white" alt="Download for Mac"></picture></a>
 
 Made by one person. If you like it, [buy me a coffee](https://buymeacoffee.com/echoone), star the repo so more people find it,<br>or share an Echo Action you made in [Discussions](https://github.com/hg913488/ECHO_ONE/discussions).
 
