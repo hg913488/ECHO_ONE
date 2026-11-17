@@ -1,74 +1,110 @@
+<a href="https://echooneapp.vercel.app"><img src="./docs/media/readme/hero.webp" alt="Talk to your Mac. It talks back. A MacBook on a stone desk in a high-rise. Echo One's notch says: I've made the draft to Rob and opened it in TextEdit. It's saved on your desktop. TextEdit shows the draft and the new file sits on the desktop."></a>
+
 <div align="center">
 
-<img src="./docs/media/poster.webp" width="96" alt="Echo One">
+<br>
 
-# Echo One
-
-Free, on-device dictation for Mac. Hold a key, talk, it types.<br>
+**Echo One** is free, on-device dictation for Mac. Hold a key, talk, it types.<br>
 Plus a voice for the Claude Code or Codex you already have.
 
-<sub>The Voice Agent and Echo Actions arrive with 2.6. Today's download, 2.5.2, has dictation, meetings and instruction mode.</sub>
+<br>
 
-[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-0D0D10?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg)
+[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg)
 
 ```bash
 brew install hg913488/tap/echo-one
 ```
 
-[![Latest release](https://img.shields.io/github/v/release/hg913488/ECHO_ONE?label=version&color=0D0D10)](https://github.com/hg913488/ECHO_ONE/releases/latest)
-&nbsp;
-![macOS 14+](https://img.shields.io/badge/macOS-14%2B-0D0D10)
-&nbsp;
-![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-M1%2B-0D0D10)
-&nbsp;
-[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+<sub>The Voice Agent and Echo Actions arrive with 2.6. Today's download, 2.5.2, has dictation, meetings and instruction mode.</sub>
 
 <br>
 
-![Echo One in action](./docs/media/hero.gif)
-
-**[echooneapp.vercel.app](https://echooneapp.vercel.app)**
+[![Latest release](https://img.shields.io/github/v/release/hg913488/ECHO_ONE?label=version&color=101417)](https://github.com/hg913488/ECHO_ONE/releases/latest)
+&nbsp;
+![macOS 14+](https://img.shields.io/badge/macOS-14%2B-101417)
+&nbsp;
+![Apple Silicon](https://img.shields.io/badge/Apple_Silicon-M1%2B-101417)
+&nbsp;
+[![License: MIT](https://img.shields.io/badge/License-MIT-00a594)](LICENSE)
 
 </div>
 
----
+<br>
 
-## Why Echo One
+## Hold two keys. Ask. Hear it answer.
 
-The good dictation apps cost a monthly subscription and send your voice to a server. Echo One does the same job for free, on your Mac, with nothing leaving it. It's built on [Ghost Pepper](https://github.com/matthartman/ghost-pepper), and it adds the thing none of them do: a voice for the coding agent you already pay for, so you can talk to Claude Code or Codex and hear it answer.
+Hold **Right Command + Right Shift** and ask your Mac to do something: *"draft an email to Rob and put it on my desktop"*, *"what's in my notes folder"*, *"rename these screenshots by date"*. Echo One hands it to the Claude Code or Codex already signed in on your Mac, and answers out loud while it works.
 
----
+No new account and no API key. It runs on the plan you already pay for.
 
-## What it does
+<img src="./docs/media/voice-agent.gif" alt="Holding right Command and right Shift, someone asks Echo One to draft an email to Rob and put it on the desktop. The notch answers out loud, TextEdit opens with the draft, and the file appears on the desktop.">
 
-**Dictation, anywhere.** Hold Right Command + Right Option, speak, let go. Echo One transcribes on your Mac and pastes into whatever has the cursor: Slack, Notion, email, Terminal. A small local model can tidy filler words as it goes. 25 languages with the default Parakeet model.
+<sub>The Voice Agent ships in the app. Its source isn't public.</sub>
 
-**Voice Agent.** Hold Right Command + Right Shift and ask your Mac to do something: "what's in my notes folder", "rename these screenshots by date", "summarise my ideas file". Echo One sends it to the Claude Code or Codex already signed in on your Mac, and answers out loud as it works. No new account and no API key: it uses the plan you already have. The Voice Agent ships in the app; its source isn't public.
+<br><br>
 
-<img src="./docs/media/voice-agent.gif" width="720" alt="Holding right Command and right Shift, someone asks Echo One to draft an email to Rob and put it on the desktop. The notch answers out loud, TextEdit opens with the draft, and the file appears on the desktop.">
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/dictation-dark.webp">
+  <img src="./docs/media/readme/dictation-light.webp" alt="And it types. Anywhere you can type. Hold, talk, let go: hold right Command + right Option and the words land at your cursor, in any app. Fillers out: um and uh are cut, and the punctuation goes in. Stays on your Mac: speech-to-text runs on your Mac, no Claude, no account. You say um hi Priya the drawings are basically done. It types: Hi Priya, the drawings are done.">
+</picture>
 
-**Echo Actions.** Some things shouldn't need an AI. Say "dark mode", "battery", "volume 30" or "timer 5 minutes" and a script runs straight away. Over 30 come built in, and you can add your own, one script file each. They use the same format as Raycast script commands, so Raycast scripts work too.
+Slack, Notion, Mail, Terminal: wherever the cursor is. 25 languages with the default Parakeet model, and a small local model can tidy the text as it goes.
 
-<img src="./docs/media/echo-actions.gif" width="720" alt="Someone says &quot;dark mode&quot;. The notch shows the Echo Action, says &quot;Dark mode is on.&quot;, and the Mac switches to dark mode.">
+<br>
 
-**Meetings.** Start a session before a call. When it ends you get a transcript with speakers labelled, notes, and a summary, saved as a Markdown file on your Mac.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/actions-dark.webp">
+  <img src="./docs/media/readme/actions-light.webp" alt="Echo Actions. Quick jobs, done in about a second. Some things don't need an AI. Say one of these and a prewritten script on your Mac does it straight away. 33 come built in: dark mode, timer 5 minutes, battery, mute, volume to 40, lock screen, empty trash, open downloads, copy last screenshot, keep awake, Wi-Fi off, speed test, kill port 3000 and more.">
+</picture>
 
-**Instruction mode.** Hold Right Control and say what to do with the selected text: "translate to French", "make this formal", "turn this into bullet points". Nothing selected? It writes new text at the cursor.
+<img src="./docs/media/echo-actions.gif" alt="Someone says &quot;dark mode&quot;. The notch shows the Echo Action, says &quot;Dark mode is on.&quot;, and the Mac switches to dark mode.">
+
+Add your own, one script file each. They use the same format as Raycast script commands, so your Raycast scripts work by voice too. [How to write one ↓](#write-an-echo-action)
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/touch-dark.webp">
+  <img src="./docs/media/readme/touch-light.webp" alt="What the Voice Agent can touch. Access: you choose what she can touch, from Ask only, Edit files, Sandbox to Full. Ask only reads files and searches the web to answer and can't change anything. Your agent: runs on the agent you already have, no API key needed. Private: dictation never leaves this Mac.">
+</picture>
+
+It acts on your Mac from a few spoken words, and speech gets misheard. So it has guard rails:
+
+- **It never deletes.** Anything it removes goes to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright, at every level.
+- **It asks before anything leaves your Mac.** Sending, pushing, publishing or buying waits for you to say yes.
+- **It never says a secret out loud.** Passwords and keys stay off the speaker.
+- **Your own scripts ask first.** A new Echo Action asks before its first run, and again after you edit it.
+- **Stop it any time.** Say "stop", press Esc, or click the reply card.
+
+<br>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="./docs/media/readme/looks-dark.webp">
+  <img src="./docs/media/readme/looks-light.webp" alt="Voice Agent ring: three rings to pick from, Echo One, Original and Ember. Each one moves with her voice. Dictation mark: four colours for the mark, Bone, Teal, Ember and Dusk, shown above the Dock while you dictate.">
+</picture>
+
+<br>
+
+## Also in the box
+
+**Meetings.** Start a session before a call. When it ends you get a transcript with speakers labelled, notes and a summary, saved as Markdown on your Mac.
+
+**Instruction mode.** Hold Right Control and say what to do with the selected text: *"translate to French"*, *"make this formal"*, *"turn this into bullet points"*. Nothing selected? It writes new text at the cursor.
 
 **Lives in your menu bar.** No Dock icon and no window to manage. Every shortcut can be changed in Settings.
 
----
+<br>
 
 ## Privacy
 
-Dictation, cleanup, meetings and the Voice Agent's voice all run on your Mac. There's no analytics, no tracking SDK and no Echo One account.
+Dictation, cleanup, meetings and the Voice Agent's voice all run on your Mac. No analytics, no tracking SDK, no Echo One account.
 
-| Feature | Where it runs |
+| | Where it runs |
 |---|---|
-| Speech-to-text | On your Mac: WhisperKit / FluidAudio |
-| Text cleanup and instruction mode | On your Mac: Qwen via LLM.swift |
-| Meeting transcripts and summaries | On your Mac, saved as Markdown |
-| Voice Agent: your voice and its reply | On your Mac |
+| Speech-to-text | Your Mac (WhisperKit / FluidAudio) |
+| Text cleanup and instruction mode | Your Mac (Qwen via LLM.swift) |
+| Meeting transcripts and summaries | Your Mac, saved as Markdown |
+| Voice Agent: your voice and its reply | Your Mac |
 | Voice Agent: the text of your command | Your own Claude Code or Codex, under your own account |
 | Echo Actions | Local scripts |
 | Analytics and telemetry | None |
@@ -77,20 +113,7 @@ The internet is used for one-time model downloads from Hugging Face, the daily u
 
 Don't take our word for it: point Claude at this repo and ask it to check. The prompt and the last result are in the [privacy audit](PRIVACY_AUDIT.md).
 
----
-
-## Safety
-
-The Voice Agent acts on your Mac from a few spoken words, and speech gets misheard. So it has guard rails.
-
-- **Four access levels.** Ask only (reads and searches, changes nothing, the default), Edit files, Sandbox (works only inside its own folder) and Full.
-- **It never deletes.** Anything it removes goes to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright, at every level.
-- **It asks before anything leaves your Mac.** Sending, pushing, publishing or buying waits for you to say yes.
-- **It never says a secret out loud.** Passwords and keys stay off the speaker.
-- **Your own scripts ask first.** A new Echo Action asks before its first run, and again after you edit it. Actions that can't be undone, like Empty Trash, ask every time.
-- **Stop it any time.** Say "stop", press Esc, or click the reply card.
-
----
+<br>
 
 ## Install
 
@@ -98,18 +121,18 @@ The Voice Agent acts on your Mac from a few spoken words, and speech gets mishea
 2. Open it and allow what it asks for:
    - **Microphone**, to hear you.
    - **Accessibility** and **Input Monitoring**, for the shortcuts and to paste.
-   - **Automation**, the first time an Echo Action controls another app (dark mode, quit an app).
+   - **Automation**, the first time an Echo Action controls another app.
 3. Hold Right Command + Right Option and talk.
 
 The Voice Agent needs [Claude Code](https://claude.com/product/claude-code) or [Codex](https://developers.openai.com/codex) installed and signed in. Dictation doesn't.
 
-Apple Silicon (M1 or later) and macOS 14 or later. Signed with Developer ID and notarized by Apple. Updates arrive in the app.
+Apple Silicon (M1 or later), macOS 14 or later. Signed with Developer ID and notarized by Apple. Updates arrive in the app.
 
----
+<br>
 
-## Echo Actions
+## Write an Echo Action
 
-An Echo Action is one script with a few comment lines on top:
+One script with a few comment lines on top:
 
 ```bash
 #!/bin/bash
@@ -122,36 +145,57 @@ open "https://example.com"
 echo "Opened the NHL site."
 ```
 
-Save it in `~/Documents/Echo One Actions/` and say its name. She says the last line it prints. A few of the built-ins:
+Save it in `~/Documents/Echo One Actions/` and say its name. She says the last line it prints.
 
-| Say | Does |
-|---|---|
-| "dark mode", "light mode" | Switches the Mac's appearance |
-| "volume 30", "mute" | Sets the sound |
-| "battery", "disk space" | Tells you |
-| "timer 5 minutes" | Rings when it's done |
-| "kill port 3000" | Stops a stuck dev server |
-| "quit Safari", "open Notes" | Quits or opens any app |
+[ECHO-ACTIONS.md](ECHO-ACTIONS.md) explains the format for you or your agent, and [`actions/`](actions/) has every built-in to copy from. In the app, **Copy for Your Agent** puts the guide on your clipboard, ready to paste into Claude, ChatGPT or Codex.
 
-Want more? [ECHO-ACTIONS.md](ECHO-ACTIONS.md) explains the format for you or your agent, and [`actions/`](actions/) has every built-in to copy from. In the app, **Copy for Your Agent** puts the guide on your clipboard, ready to paste into Claude, ChatGPT or Codex.
-
----
+<br>
 
 ## FAQ
 
-**Is it really free?** Yes. No subscription, no trial, no account. If it helps you, you can [buy me a coffee](https://buymeacoffee.com/echoone).
+<details>
+<summary><b>Is it really free?</b></summary>
+<br>
+Yes. No subscription, no trial, no account. If it helps you, you can <a href="https://buymeacoffee.com/echoone">buy me a coffee</a>.
+<br><br>
+</details>
 
-**What's open source?** Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its source isn't public.
+<details>
+<summary><b>What's open source?</b></summary>
+<br>
+Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its source isn't public.
+<br><br>
+</details>
 
-**Which Macs?** Apple Silicon (M1 or later) on macOS 14 or later.
+<details>
+<summary><b>Do I need Claude or ChatGPT?</b></summary>
+<br>
+Only for the Voice Agent. Dictation, meetings and Echo Actions work without either.
+<br><br>
+</details>
 
-**Do I need Claude or ChatGPT?** Only for the Voice Agent. Dictation, meetings and Echo Actions work without either.
+<details>
+<summary><b>Does the Voice Agent cost extra?</b></summary>
+<br>
+No. It uses your existing Claude or ChatGPT plan through the Claude Code or Codex you already have signed in.
+<br><br>
+</details>
 
-**Does the Voice Agent cost extra?** No. It uses your existing Claude or ChatGPT plan through the Claude Code or Codex you already have signed in.
+<details>
+<summary><b>Which Macs?</b></summary>
+<br>
+Apple Silicon (M1 or later) on macOS 14 or later.
+<br><br>
+</details>
 
-**Where are my files?** Meeting notes go to the folder you pick. Voice Agent transcripts are in `~/Documents/Echo One Agent/`. Your Echo Actions are in `~/Documents/Echo One Actions/`.
+<details>
+<summary><b>Where are my files?</b></summary>
+<br>
+Meeting notes go to the folder you pick. Voice Agent transcripts are in <code>~/Documents/Echo One Agent/</code>. Your Echo Actions are in <code>~/Documents/Echo One Actions/</code>.
+<br><br>
+</details>
 
----
+<br>
 
 ## Build from source
 
@@ -163,16 +207,24 @@ open EchoOne.xcodeproj
 
 More in [docs/development.md](docs/development.md). What changed in each version: [CHANGELOG.md](CHANGELOG.md).
 
----
+<br>
 
 ## Credits
 
 Echo One is a fork of [Ghost Pepper](https://github.com/matthartman/ghost-pepper) by Matt Hartman (MIT). Speech via [WhisperKit](https://github.com/argmaxinc/WhisperKit) and [FluidAudio](https://github.com/FluidInference/FluidAudio), text cleanup via [LLM.swift](https://github.com/eastriverlee/LLM.swift), updates via [Sparkle](https://sparkle-project.org/). The Echo Actions format comes from [Raycast script commands](https://github.com/raycast/script-commands). Licences for everything Echo One is built on are in [Acknowledgements](EchoOne/Acknowledgements.txt).
 
-## Support
+<br>
 
-Echo One is made by one person. If you like it:
+<a href="https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg"><img src="./docs/media/readme/night.webp" alt="The same MacBook at night. Its desktop is split: Voice Agent, hold right Command + right Shift: ask, your agent does it. Dictation, hold right Command + right Option: talk, it types. Dictation apps type. This one also answers."></a>
 
-- [**Buy me a coffee**](https://buymeacoffee.com/echoone)
-- **Star this repo**, so more people find it
-- Share an Echo Action you made in [Discussions](https://github.com/hg913488/ECHO_ONE/discussions)
+<div align="center">
+
+<br>
+
+[![Download for Mac](https://img.shields.io/badge/Download_for_Mac-101417?style=for-the-badge&logo=apple&logoColor=white)](https://github.com/hg913488/ECHO_ONE/releases/latest/download/EchoOne.dmg)
+
+Made by one person. If you like it, [buy me a coffee](https://buymeacoffee.com/echoone), star the repo so more people find it,<br>or share an Echo Action you made in [Discussions](https://github.com/hg913488/ECHO_ONE/discussions).
+
+**[echooneapp.vercel.app](https://echooneapp.vercel.app)**
+
+</div>
