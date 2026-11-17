@@ -2,7 +2,7 @@
 
 ## Reporting a vulnerability
 
-Open a [GitHub issue](https://github.com/hg913488/echo-one/issues) marked **[Security]**. For sensitive disclosures, email the address in the commit history.
+Open a [GitHub issue](https://github.com/hg913488/ECHO_ONE/issues) marked **[Security]**. For sensitive disclosures, email the address in the commit history.
 
 ## Privacy guarantees
 

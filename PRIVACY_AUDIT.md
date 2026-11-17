@@ -52,6 +52,20 @@ These features require explicit user action and API keys. They are **disabled by
 | Model downloads | User selects a model to download | No (public Hugging Face URLs) |
 | Sparkle update check | Automatic, checks GitHub appcast.xml 1x/24h | No |
 
+### Voice Agent and Echo Actions (from 2.6)
+
+The Voice Agent talks to a coding agent you already have installed and signed in: Claude Code or Codex. It is off until you use its shortcut. Its source isn't public, so this section describes what it sends rather than an audit you can rerun.
+
+| What | Where it goes |
+|------|---------------|
+| Your voice | Transcribed on-device, like dictation. The audio never leaves the Mac. |
+| The spoken reply | Spoken on-device. |
+| The text of your command | Your own Claude Code or Codex, under your own account, to Anthropic or OpenAI. Echo One has no server and no account of its own. |
+| Files the agent reads | The agent reads files in the folder you choose and sends what it reads to its provider as part of the conversation, the same as using it in Terminal. Ask only and Sandbox limit what it can reach. |
+| Transcripts | Markdown files in `~/Documents/Echo One Agent/`. Local only. |
+
+Echo Actions run local scripts and send nothing anywhere by themselves. A script can, if it's written to: the built-in Search Google and Search YouTube actions open a search in your browser, and Speed Test uses Apple's `networkQuality` servers. The runner is `EchoOne/Agent/EchoActions.swift`.
+
 ### Verdict
 
 :white_check_mark: **All default features run 100% locally. No user data leaves the device unless the user explicitly configures a cloud integration.**

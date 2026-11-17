@@ -1,0 +1,63 @@
+name: Bug report
+description: Something in Echo One doesn't work the way it should.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to make it happen again
+      placeholder: |
+        1. Hold Right Command + Right Option
+        2. Say "..."
+        3. ...
+  - type: dropdown
+    id: feature
+    attributes:
+      label: Which part?
+      options:
+        - Dictation
+        - Instruction mode
+        - Meetings
+        - Voice Agent
+        - Echo Actions
+        - Settings
+        - Install or update
+        - Something else
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Echo One version
+      description: Settings → General → About.
+      placeholder: "2.6.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 15.7, MacBook Air M2"
+    validations:
+      required: true
+  - type: dropdown
+    id: agent
+    attributes:
+      label: Voice Agent connects to
+      description: Only if this is about the Voice Agent.
+      options:
+        - Not about the Voice Agent
+        - Claude Code
+        - Codex
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, the microphone you use, or a line from the day's Voice Agent transcript (~/Documents/Echo One Agent/). Check it for anything private first.
