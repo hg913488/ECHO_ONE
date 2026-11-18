@@ -1,4 +1,4 @@
-<a href="https://echooneapp.vercel.app"><img src="./docs/media/readme/hero.webp" alt="Talk to your Mac. It talks back. A MacBook on a stone desk in a high-rise. Echo One's notch says: I've made the draft to Rob and opened it in TextEdit. It's saved on your desktop. TextEdit shows the draft and the new file sits on the desktop."></a>
+<a href="https://echooneapp.vercel.app"><picture><source media="(max-width: 600px)" srcset="./docs/media/readme/hero-sm.webp"><img src="./docs/media/readme/hero.webp" alt="Talk to your Mac. It talks back. A MacBook on a stone desk in a high-rise. Echo One's notch says: I've made the draft to Rob and opened it in TextEdit. It's saved on your desktop. TextEdit shows the draft and the new file sits on the desktop."></picture></a>
 
 <div align="center">
 
