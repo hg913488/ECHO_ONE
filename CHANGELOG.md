@@ -2,7 +2,7 @@
 
 Every Echo One release. Apple Silicon (M1+), macOS 14.0+, signed with Developer ID and notarized by Apple.
 
-## 2.6.0 (unreleased)
+## 2.6.0 (2026-11-17)
 
 ### New
 - **Voice Agent.** Hold Right Command + Right Shift and talk to the Claude Code or Codex already signed in on your Mac. It answers out loud with an on-device voice, and starts talking while it is still writing. Four access levels, from Ask only to Full.
@@ -10,11 +10,15 @@ Every Echo One release. Apple Silicon (M1+), macOS 14.0+, signed with Developer 
 - **Echo Actions.** Say "dark mode", "battery" or "timer 5 minutes" and a script runs straight away, with no AI. Over 30 built in, plus your own scripts in the Raycast script command format. See [ECHO-ACTIONS.md](ECHO-ACTIONS.md).
 - **Settings in two tabs,** Dictation and Voice Agent, with more on screen and less scrolling. Donate and Star on GitHub at the bottom.
 
+### Changed
+- **One speech model:** Parakeet Ultra, 25 European languages. Whisper and Parakeet v3 are gone.
+
 ### Safety
-- The Voice Agent never deletes: anything it removes goes to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright.
-- It asks out loud before anything that leaves your Mac (sending, pushing, publishing, buying) and never reads a password or key aloud.
+- The Voice Agent is told never to delete: anything it removes should go to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright.
+- It's told to ask out loud before anything that leaves your Mac (sending, pushing, publishing, buying) and never to read a password or key aloud. AI doesn't always follow instructions, so keep backups.
 - Your own Echo Actions ask once before their first run, and again after you edit them.
 - Say "stop", press Esc or click the reply card to stop it.
+- The first time you use the Voice Agent, it shows what it can do on your Mac and asks you to agree to the [terms of use](https://echooneapp.vercel.app/terms/).
 
 ### Fixes
 - Recordings no longer come out empty when AirPods connect or switch mode while you are talking.

@@ -15,8 +15,6 @@ Plus a voice for the Claude Code or Codex you already have.
 brew install hg913488/tap/echo-one
 ```
 
-<sub>The Voice Agent and Echo Actions arrive with 2.6. Today's download, 2.5.2, has dictation, meetings and instruction mode.</sub>
-
 <br>
 
 [![Latest release](https://img.shields.io/github/v/release/hg913488/ECHO_ONE?label=version&color=101417)](https://github.com/hg913488/ECHO_ONE/releases/latest)
@@ -76,9 +74,10 @@ Add your own, one script file each. They use the same format as Raycast script c
 
 It acts on your Mac from a few spoken words, and speech gets misheard. So it has guard rails:
 
-- **It never deletes.** Anything it removes goes to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright, at every level.
-- **It asks before anything leaves your Mac.** Sending, pushing, publishing or buying waits for you to say yes.
-- **It never says a secret out loud.** Passwords and keys stay off the speaker.
+- **It's told never to delete.** Anything it removes should go to the Trash, where Put Back restores it. For Claude Code, delete commands, force-pushes and hard resets are blocked outright, at every level.
+- **It's told to ask before anything leaves your Mac.** Sending, pushing, publishing or buying should wait for you to say yes.
+- **It's told never to say a secret out loud.** Passwords and keys should stay off the speaker.
+- **AI can still get things wrong.** These rules lower the risk; they don't remove it. Check its work and keep backups.
 - **Your own scripts ask first.** A new Echo Action asks before its first run, and again after you edit it.
 - **Stop it any time.** Say "stop", press Esc, or click the reply card.
 
@@ -171,7 +170,7 @@ Yes. No subscription, no trial, no account. If it helps you, you can <a href="ht
 <details>
 <summary><b>What's open source?</b></summary>
 <br>
-Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its source isn't public.
+Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its source isn't public. The public code can lag behind the released app: right now it builds 2.5.2 dictation, with the 2.6 Echo Actions runner in `EchoOne/Agent/EchoActions.swift`.
 <br><br>
 </details>
 
@@ -214,6 +213,12 @@ open EchoOne.xcodeproj
 ```
 
 More in [docs/development.md](docs/development.md). What changed in each version: [CHANGELOG.md](CHANGELOG.md).
+
+<br>
+
+## Disclaimer
+
+Echo One is free and comes as is, with no warranty. The Voice Agent acts on your Mac through your own Claude Code or Codex, and AI can get things wrong: you're in charge of what you ask it to do, so check its work and keep backups. Echo One isn't affiliated with Anthropic, OpenAI or Raycast. The full [terms of use](https://echooneapp.vercel.app/terms/).
 
 <br>
 
