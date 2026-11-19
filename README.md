@@ -37,7 +37,7 @@ No new account and no API key. It runs on the plan you already pay for.
 
 <img src="./docs/media/voice-agent.gif" alt="Holding right Command and right Shift, someone asks Echo One to draft an email to Rob and put it on the desktop. The notch answers out loud, TextEdit opens with the draft, and the file appears on the desktop.">
 
-<sub>The Voice Agent ships in the app. Its source isn't public.</sub>
+<sub>The Voice Agent ships in the app. Its engine isn't public.</sub>
 
 <br><br>
 

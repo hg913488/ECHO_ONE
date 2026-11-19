@@ -54,7 +54,7 @@ These features require explicit user action and API keys. They are **disabled by
 
 ### Voice Agent and Echo Actions (from 2.6)
 
-The Voice Agent talks to a coding agent you already have installed and signed in: Claude Code or Codex. It is off until you use its shortcut. Its source isn't public, so this section describes what it sends rather than an audit you can rerun.
+The Voice Agent talks to a coding agent you already have installed and signed in: Claude Code or Codex. It is off until you use its shortcut. Its engine isn't public, so this section describes what it sends rather than an audit you can rerun.
 
 | What | Where it goes |
 |------|---------------|
