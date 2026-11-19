@@ -17,7 +17,7 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         let view = SettingsView(appState: appState)
 
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 920, height: 700),
+            contentRect: NSRect(x: 0, y: 0, width: 980, height: 700),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -30,8 +30,14 @@ final class SettingsWindowController: NSObject, NSWindowDelegate {
         window.isOpaque = true
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.minSize = NSSize(width: 880, height: 660)
-        window.contentViewController = NSHostingController(rootView: view)
+        window.minSize = NSSize(width: 960, height: 660)
+        // Keep the window at 980×700. By default the hosting controller shrinks it
+        // to 0×0 here and SwiftUI grows it later from the bottom-left corner, after
+        // center() has run, so it opened half off the top-right of the screen.
+        let hosting = NSHostingController(rootView: view)
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        window.setContentSize(NSSize(width: 980, height: 700))
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -94,15 +100,42 @@ final class SettingsDictationTestController: ObservableObject {
 
 // MARK: - Settings View
 
+/// The two tabs at the top of the Settings sidebar.
+enum SettingsMode: String, CaseIterable {
+    case dictation
+    case agent
+
+    var title: String {
+        switch self {
+        case .dictation: "Dictation"
+        case .agent: "Voice Agent"
+        }
+    }
+
+    var sections: [SettingsSection] {
+        SettingsSection.allCases.filter { $0.mode == self }
+    }
+}
+
 enum SettingsSection: String, CaseIterable, Identifiable {
     case general
     case cleanup
     case models
     case transcriptionLab
-    case recognizedVoices
-    case meetingTranscript
+    case meetings
+    case agent
+    case agentActions
+    case agentVoice
+    case agentTranscripts
 
     var id: String { rawValue }
+
+    var mode: SettingsMode {
+        switch self {
+        case .agent, .agentActions, .agentVoice, .agentTranscripts: .agent
+        default: .dictation
+        }
+    }
 
     var title: String {
         switch self {
@@ -110,19 +143,25 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .cleanup: "Cleanup"
         case .models: "Models"
         case .transcriptionLab: "History"
-        case .recognizedVoices: "Recognized Voices"
-        case .meetingTranscript: "Meeting Transcript"
+        case .meetings: "Meetings"
+        case .agent: "Agent"
+        case .agentActions: "Echo Actions"
+        case .agentVoice: "Voice"
+        case .agentTranscripts: "Transcripts"
         }
     }
 
     var subtitle: String {
         switch self {
-        case .general: "Startup behavior, shortcuts, microphone input, dictation testing, and sound feedback."
+        case .general: "Permissions, shortcuts, microphone, and how dictation looks."
         case .cleanup: "Prompt cleanup, correction hints, OCR context, and learning behavior."
         case .models: "Speech and cleanup model downloads and runtime status."
         case .transcriptionLab: "Saved recordings, reruns, and cleanup experiments."
-        case .recognizedVoices: "Reusable speaker labels and 'this is me' voice prints."
-        case .meetingTranscript: "Auto-detect calls and transcribe meetings locally."
+        case .meetings: "Auto-detect calls, transcribe them locally, and the voices Echo One knows."
+        case .agent: "Talk to your coding agent: what it may do and where it works."
+        case .agentActions: "Say a name, and a script runs straight away. No agent, no wait."
+        case .agentVoice: "How she sounds and what you see while she talks."
+        case .agentTranscripts: "Everything she said, one file per day, and what it used."
         }
     }
 
@@ -132,8 +171,11 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .cleanup: "sparkles"
         case .models: "brain"
         case .transcriptionLab: "waveform.badge.magnifyingglass"
-        case .recognizedVoices: "person.crop.circle.badge.checkmark"
-        case .meetingTranscript: "waveform.badge.mic"
+        case .meetings: "waveform.badge.mic"
+        case .agent: "bubble.left.and.text.bubble.right"
+        case .agentActions: "bolt"
+        case .agentVoice: "speaker.wave.2"
+        case .agentTranscripts: "doc.text"
         }
     }
 
@@ -143,8 +185,11 @@ enum SettingsSection: String, CaseIterable, Identifiable {
         case .cleanup:           return "sparkles"
         case .models:            return "arrow.down.circle"
         case .transcriptionLab:  return "clock"
-        case .recognizedVoices:  return "person"
-        case .meetingTranscript: return "waveform"
+        case .meetings:          return "waveform"
+        case .agent:             return "bubble.left"
+        case .agentActions:      return "bolt"
+        case .agentVoice:        return "speaker.wave.2"
+        case .agentTranscripts:  return "doc.text"
         }
     }
 }
@@ -255,34 +300,30 @@ struct SettingsView: View {
 
 
     var body: some View {
+        VStack(spacing: 0) {
         HStack(spacing: 0) {
             // MARK: Sidebar
             ScrollView(.vertical, showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 0) {
-                    // Header
-                    HStack(spacing: 8) {
-                        Image("MenuBarIcon")
-                            .renderingMode(.template)
-                            .resizable()
-                            .frame(width: 15, height: 15)
-                            .foregroundStyle(Color(red: 0.24, green: 0.83, blue: 0.70).opacity(0.85))
-                        Text("Settings")
-                            .font(.system(size: 13, weight: .semibold))
-                            .foregroundStyle(Color.white.opacity(0.80))
-                    }
-                    .padding(.horizontal, 16)
-                    .padding(.top, 24)
-                    .padding(.bottom, 20)
+                    SettingsModeSwitch(mode: Binding(
+                        get: { selectedSection.mode },
+                        set: { newMode in
+                            withAnimation(.easeOut(duration: 0.16)) {
+                                selectedSection = newMode.sections[0]
+                            }
+                        }
+                    ))
+                    .padding(.horizontal, 12)
+                    .padding(.top, 40)
+                    .padding(.bottom, 14)
 
-                    ForEach(SettingsSection.allCases) { section in
+                    ForEach(selectedSection.mode.sections) { section in
                         SidebarNavRow(section: section, isSelected: selectedSection == section) {
                             withAnimation(.easeOut(duration: 0.16)) {
                                 selectedSection = section
                             }
                         }
                     }
-
-                    Spacer(minLength: 0)
                 }
             }
             .frame(minWidth: 220, idealWidth: 220, maxWidth: 220, maxHeight: .infinity)
@@ -307,8 +348,9 @@ struct SettingsView: View {
             ScrollView {
                 Group {
                     detailContent
-                        .padding(.horizontal, 44)
-                        .padding(.vertical, 36)
+                        .padding(.horizontal, 28)
+                        .padding(.top, 30)
+                        .padding(.bottom, 24)
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .id(selectedSection)
@@ -338,10 +380,12 @@ struct SettingsView: View {
                 }
             )
         }
-        .frame(minWidth: 880, minHeight: 660)
+            SettingsBottomBar()
+        }
+        .frame(minWidth: 960, minHeight: 660)
         .onAppear {
             inputDevices = AudioDeviceManager.listInputDevices()
-            selectedDeviceID = AudioDeviceManager.selectedInputDeviceID() ?? AudioDeviceManager.defaultInputDeviceID() ?? 0
+            selectedDeviceID = AudioDeviceManager.selectedInputDeviceID() ?? 0
             refreshScreenRecordingPermission()
             refreshRequiredPermissions()
             startPermissionPollingIfNeeded()
@@ -481,15 +525,15 @@ struct SettingsView: View {
 
     @ViewBuilder
     private var detailContent: some View {
-        VStack(alignment: .leading, spacing: 32) {
+        VStack(alignment: .leading, spacing: 18) {
             if !(selectedSection == .transcriptionLab && transcriptionLabController.selectedEntry != nil) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 3) {
                     Text(selectedSection.title)
-                        .font(.system(size: 26, weight: .semibold))
+                        .font(.system(size: 21, weight: .semibold))
                         .foregroundStyle(Color.white.opacity(0.92))
                     if selectedSection != .transcriptionLab {
                         Text(selectedSection.subtitle)
-                            .font(.system(size: 13.5))
+                            .font(.system(size: 12.5))
                             .foregroundStyle(Color.white.opacity(0.38))
                             .fixedSize(horizontal: false, vertical: true)
                     }
@@ -505,10 +549,19 @@ struct SettingsView: View {
                 modelsSection
             case .transcriptionLab:
                 transcriptionLabSection
-            case .recognizedVoices:
-                recognizedVoicesSection
-            case .meetingTranscript:
-                meetingTranscriptSection
+            case .meetings:
+                VStack(alignment: .leading, spacing: 12) {
+                    meetingTranscriptSection
+                    recognizedVoicesSection
+                }
+            case .agent:
+                voiceAgentSection
+            case .agentActions:
+                echoActionsSection
+            case .agentVoice:
+                voiceAgentVoiceSection
+            case .agentTranscripts:
+                voiceAgentTranscriptsSection
             }
 
             Spacer(minLength: 0)
@@ -516,7 +569,7 @@ struct SettingsView: View {
     }
 
     private var generalSection: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        SettingsColumns {
             SettingsCard("Permissions") {
                 VStack(alignment: .leading, spacing: 12) {
                     PermissionStatusRow(
@@ -578,16 +631,57 @@ struct SettingsView: View {
                             .foregroundStyle(.red)
                     }
 
-                    Text("Push to talk records while the hold chord stays down. Toggle starts and stops with the chord. Instruction mode holds to speak a command — select text first to transform it, or just speak to generate at cursor.")
+                    Text("Push to talk records while the hold chord stays down. Toggle starts and stops with the chord. Instruction mode holds to speak a command — select text first to transform it, or just speak to generate at cursor. The Voice Agent shortcut is in the Voice Agent tab.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
 
+
+            SettingsCard("Startup") {
+                Toggle("Launch at login", isOn: $launchAtLogin)
+                    .onChange(of: launchAtLogin) { _, enabled in
+                        do {
+                            if enabled {
+                                try SMAppService.mainApp.register()
+                            } else {
+                                try SMAppService.mainApp.unregister()
+                            }
+                        } catch {
+                            launchAtLogin = !enabled
+                        }
+                    }
+            }
+
+            FormFillSettingsCard(
+                enabled: Binding(
+                    get: { appState.formFillBetaEnabled },
+                    set: { appState.formFillBetaEnabled = $0 }
+                )
+            )
+
+            SettingsCard("About") {
+                HStack {
+                    Text("Built on Ghost Pepper and other open-source projects.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Spacer()
+                    Button("Terms") {
+                        NSWorkspace.shared.open(AppState.termsURL)
+                    }
+                    Button("Acknowledgements") {
+                        if let url = Bundle.main.url(forResource: "Acknowledgements", withExtension: "txt") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                }
+            }
+        } right: {
             SettingsCard("Input") {
                 VStack(alignment: .leading, spacing: 18) {
                     SettingsField("Microphone") {
                         Picker("Microphone", selection: $selectedDeviceID) {
+                            Text("System default").tag(AudioDeviceID(0))
                             ForEach(inputDevices) { device in
                                 Text(device.name).tag(device.id)
                             }
@@ -595,7 +689,11 @@ struct SettingsView: View {
                         .labelsHidden()
                         .frame(maxWidth: 320, alignment: .leading)
                         .onChange(of: selectedDeviceID) { _, newValue in
-                            AudioDeviceManager.setSelectedInputDevice(newValue)
+                            if newValue == 0 {
+                                AudioDeviceManager.clearSelectedInputDevice()
+                            } else {
+                                AudioDeviceManager.setSelectedInputDevice(newValue)
+                            }
                             appState.resetAudioEngine()
                         }
                     }
@@ -623,6 +721,55 @@ struct SettingsView: View {
                         )
                         .disabled(!speakerFilteringToggleState.isEnabled)
                     }
+                }
+            }
+
+            SettingsCard("Recording mark") {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ForEach(DictationMarkColour.allCases, id: \.rawValue) { colour in
+                            let selected = dictationMarkColour == colour.rawValue
+                            Button {
+                                dictationMarkColour = colour.rawValue
+                            } label: {
+                                VStack(spacing: 6) {
+                                    DictationMarkView(level: DictationLevel(), colour: colour, still: true)
+                                        .frame(width: 100, height: 68)
+                                        .scaleEffect(0.64)
+                                        .frame(width: 64, height: 44)
+                                        .background(RoundedRectangle(cornerRadius: 10).fill(Color.black))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 10)
+                                                .stroke(selected ? Color(red: 0, green: 0.82, blue: 0.73) : Color.white.opacity(0.1),
+                                                        lineWidth: selected ? 2 : 1)
+                                        )
+                                    Text(colour.name)
+                                        .font(.caption)
+                                        .foregroundStyle(selected ? .primary : .secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    Text("Shown above the Dock while you dictate, in a small black box. The bars move with your voice and settle back into the logo when you pause.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            SettingsCard("After dictating") {
+                VStack(alignment: .leading, spacing: 8) {
+                    Picker("Show in the notch", selection: $dictationNotchMode) {
+                        ForEach(DictationNotchMode.allCases, id: \.rawValue) { mode in
+                            Text(mode.title).tag(mode.rawValue)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.segmented)
+                    .frame(maxWidth: 400)
+                    Text("Shows what you said in the notch so you can copy it. Hover to keep it open.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
             }
 
@@ -676,33 +823,11 @@ struct SettingsView: View {
                     }
                 }
             }
-
-            SettingsCard("Startup") {
-                Toggle("Launch at login", isOn: $launchAtLogin)
-                    .onChange(of: launchAtLogin) { _, enabled in
-                        do {
-                            if enabled {
-                                try SMAppService.mainApp.register()
-                            } else {
-                                try SMAppService.mainApp.unregister()
-                            }
-                        } catch {
-                            launchAtLogin = !enabled
-                        }
-                    }
-            }
-
-            FormFillSettingsCard(
-                enabled: Binding(
-                    get: { appState.formFillBetaEnabled },
-                    set: { appState.formFillBetaEnabled = $0 }
-                )
-            )
         }
     }
 
     private var cleanupSection: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 12) {
             SettingsCard("Cleanup") {
                 VStack(alignment: .leading, spacing: 16) {
                     Toggle(
@@ -825,21 +950,10 @@ struct SettingsView: View {
     }
 
     private var modelsSection: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 12) {
             SettingsCard("Speech model") {
                 SettingsField("Active speech model") {
-                    Picker("Speech Model", selection: $appState.speechModel) {
-                        ForEach(ModelManager.availableModels) { model in
-                            Text(model.pickerLabel).tag(model.name)
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(maxWidth: 320, alignment: .leading)
-                    .onChange(of: appState.speechModel) { _, newModel in
-                        Task {
-                            await appState.loadSpeechModel(name: newModel)
-                        }
-                    }
+                    Text(SpeechModelCatalog.parakeetUltra.statusName)
                 }
 
                 Text("Echo One uses this model for speech recognition everywhere in the app.")
@@ -856,26 +970,10 @@ struct SettingsView: View {
                         Text("Portuguese").tag("pt")
                         Text("Italian").tag("it")
                         Text("Dutch").tag("nl")
-                        Text("Chinese").tag("zh")
-                        Text("Japanese").tag("ja")
-                        Text("Korean").tag("ko")
                         Text("Russian").tag("ru")
-                        Text("Arabic").tag("ar")
-                        Text("Hindi").tag("hi")
                     }
                     .labelsHidden()
                     .frame(maxWidth: 320, alignment: .leading)
-                }
-
-                if appState.preferredLanguage != "auto" && appState.preferredLanguage != "en" && appState.speechModel.hasSuffix(".en") {
-                    HStack(spacing: 6) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(Color.white.opacity(0.9))
-                            .font(.caption)
-                        Text("You've selected a non-English language but are using an English-only model. Switch to **Multilingual** or **Parakeet v3** above for best results.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                 }
             }
 
@@ -901,7 +999,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Text("Recommended cleanup models are marked Very fast, Fast, and Full.")
+                Text("Recommended cleanup models are marked Fast and Full.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
@@ -944,12 +1042,14 @@ struct SettingsView: View {
 
     private var recognizedVoicesSection: some View {
         VStack(alignment: .leading, spacing: 20) {
-            ContentUnavailableView(
-                "No Recognized Voices",
-                systemImage: "person.crop.circle.badge.questionmark",
-                description: Text("Run speaker tagging in History to create reusable voice prints.")
-            )
-            .frame(maxWidth: .infinity, minHeight: 280)
+            SettingsCard("Recognized Voices") {
+                ContentUnavailableView(
+                    "No Recognized Voices",
+                    systemImage: "person.crop.circle.badge.questionmark",
+                    description: Text("Run speaker tagging in History to create reusable voice prints.")
+                )
+                .frame(maxWidth: .infinity, minHeight: 140)
+            }
         }
     }
 
@@ -1578,8 +1678,572 @@ struct SettingsView: View {
         MeetingTranscriptSettings.loadSaveDirectory()
     }()
 
+    // MARK: Voice Agent
+
+    @AppStorage(VoiceAgent.accessDefaultsKey) private var voiceAgentAccess: String = VoiceAgent.Access.askOnly.rawValue
+    @AppStorage(VoiceAgent.folderDefaultsKey) private var voiceAgentFolder: String = ""
+    @AppStorage(AgentTranscriptLog.folderDefaultsKey) private var agentTranscriptFolder: String = ""
+    @State private var agentTranscriptDays: [AgentTranscriptLog.Day] = []
+    @State private var agentWeekSummary: AgentTranscriptLog.WeekSummary?
+    @AppStorage(VoiceAgent.speedDefaultsKey) private var voiceAgentSpeechSpeed: Double = VoiceAgent.defaultSpeechSpeed
+    @AppStorage(VoiceAgent.voiceDefaultsKey) private var voiceAgentVoice: String = VoiceAgent.ReplyVoice.kokoro.rawValue
+    @AppStorage(VoiceAgent.rulesDefaultsKey) private var voiceAgentRules: String = ""
+    @AppStorage(AgentOrbStyle.defaultsKey) private var orbStyle: String = AgentOrbStyle.original.rawValue
+    @AppStorage(AgentOrbStyle.rippleDefaultsKey) private var orbRipple: Bool = AgentOrbStyle.current.ripplesByDefault
+    @AppStorage(VoiceAgent.showsReplyTextDefaultsKey) private var showsReplyText: Bool = true
+    @AppStorage(DictationMarkColour.defaultsKey) private var dictationMarkColour: String = DictationMarkColour.bone.rawValue
+    @AppStorage(DictationNotchMode.defaultsKey) private var dictationNotchMode: String = DictationNotchMode.pasteFails.rawValue
+    @State private var claudeAccount: ClaudeAccount.Status = .checking
+    @State private var echoActions: [EchoActions.Action] = []
+    @State private var echoActionFolders: [URL] = []
+    @State private var raycastOffer: (folder: URL, count: Int)?
+    @State private var copiedActionGuide = false
+
+    private var claudeAccountIsSignedIn: Bool {
+        if case .signedIn = claudeAccount { return true }
+        return false
+    }
+
+    private var agentProvider: VoiceAgent.Provider {
+        VoiceAgent.Provider(rawValue: appState.voiceAgentProvider) ?? .claude
+    }
+
+    private func refreshClaudeAccount() {
+        claudeAccount = .checking
+        let provider = agentProvider
+        Task {
+            let status = provider == .claude ? await ClaudeAccount.status() : await ClaudeAccount.codexStatus()
+            if provider == agentProvider { claudeAccount = status }
+        }
+    }
+
+    private func chooseFolder(message: String) -> URL? {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.message = message
+        panel.prompt = "Select Folder"
+        return panel.runModal() == .OK ? panel.url : nil
+    }
+
+    private var voiceAgentSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if !hasAccessibilityPermission || !hasInputMonitoringPermission {
+                HStack {
+                    Label("The shortcut needs Accessibility and Input Monitoring.", systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                    Spacer()
+                    Button("Open Permissions") { selectedSection = .general }
+                        .controlSize(.small)
+                }
+            }
+
+            SettingsCard("Account") {
+                VStack(alignment: .leading, spacing: 10) {
+                    SettingsField("Talks to") {
+                        Picker("Talks to", selection: $appState.voiceAgentProvider) {
+                            ForEach(VoiceAgent.Provider.allCases) { provider in
+                                Text(provider.name).tag(provider.rawValue)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 260)
+                        .onChange(of: appState.voiceAgentProvider) { _, _ in refreshClaudeAccount() }
+                    }
+                    HStack {
+                        switch claudeAccount {
+                        case .checking:
+                            Label("Checking \(agentProvider.name)…", systemImage: "hourglass")
+                        case .notInstalled:
+                            Label("\(agentProvider.name) isn't installed", systemImage: "exclamationmark.triangle.fill")
+                        case .signedOut:
+                            Label("Not signed in", systemImage: "person.crop.circle.badge.xmark")
+                        case .signedIn(let email, let plan):
+                            if agentProvider == .codex {
+                                Label("Signed in with \(email)", systemImage: "checkmark.circle.fill")
+                            } else {
+                                Label(plan.isEmpty ? "Signed in as \(email)" : "Signed in as \(email) (\(plan))",
+                                      systemImage: "checkmark.circle.fill")
+                            }
+                        }
+                        Spacer()
+                        if case .notInstalled = claudeAccount {
+                            Button("Get \(agentProvider.name)") {
+                                NSWorkspace.shared.open(agentProvider.downloadURL)
+                            }
+                        } else {
+                            Button(claudeAccountIsSignedIn ? "Switch Account…" : "Sign In…") {
+                                ClaudeAccount.openSignIn(agentProvider)
+                            }
+                            Button("Refresh") { refreshClaudeAccount() }
+                        }
+                    }
+                    Text(agentProvider == .claude
+                         ? "The agent uses the Claude account Claude Code is signed in to, so it runs on your own subscription. Sign In opens Terminal and your browser."
+                         : "The agent uses the account Codex is signed in to, so it runs on your own ChatGPT plan. Sign In opens Terminal and your browser.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            SettingsColumns {
+            SettingsCard("Voice Agent") {
+                VStack(alignment: .leading, spacing: 16) {
+                    Toggle("Voice Agent", isOn: $appState.voiceAgentEnabled)
+                        .toggleStyle(.switch)
+
+                    ShortcutRecorderView(
+                        title: "Shortcut",
+                        chord: appState.voiceAgentChord,
+                        onRecordingStateChange: appState.setShortcutCaptureActive
+                    ) { chord in
+                        appState.updateShortcut(chord, for: .voiceAgent)
+                    }
+                    .disabled(!appState.voiceAgentEnabled)
+
+                    Text("Hold the shortcut, speak, let go. When it's off, the shortcut does nothing.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            } right: {
+            SettingsCard(agentProvider.shortName) {
+                VStack(alignment: .leading, spacing: 18) {
+                    SettingsField("Model") {
+                        if agentProvider == .claude {
+                            Picker("Model", selection: $appState.voiceAgentModel) {
+                                ForEach(VoiceAgent.models, id: \.id) { model in
+                                    Text(model.name).tag(model.id)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: 240)
+                        } else {
+                            Text(VoiceAgent.codexDefaultModel().map { "Your Codex default (\($0))" } ?? "Your Codex default")
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+
+                    SettingsField("Access") {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Picker("Access", selection: $voiceAgentAccess) {
+                                ForEach(VoiceAgent.Access.allCases) { level in
+                                    Text(level.name).tag(level.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: 400)
+
+                            Text((VoiceAgent.Access(rawValue: voiceAgentAccess) ?? .askOnly).detail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if agentProvider == .codex {
+                                Text("With Codex, Edit files can also run commands inside the folder, and Sandbox can still read files outside it.")
+                                    .font(.caption)
+                                    .foregroundStyle(.orange.opacity(0.85))
+                            }
+                        }
+                    }
+
+                    SettingsField("Works in") {
+                        HStack {
+                            if voiceAgentAccess == VoiceAgent.Access.sandbox.rawValue {
+                                Text(VoiceAgent.sandboxFolder.path)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button("Open Folder") {
+                                    NSWorkspace.shared.open(VoiceAgent.workingFolder(for: .sandbox))
+                                }
+                            } else {
+                                Text(((voiceAgentFolder.isEmpty ? VoiceAgent.defaultFolder() : VoiceAgent.folder).path as NSString).abbreviatingWithTildeInPath)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button("Choose...") {
+                                    if let url = chooseFolder(message: "Choose the folder \(agentProvider.name) works in") {
+                                        voiceAgentFolder = url.path
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    Text("\(agentProvider.name) starts in that folder and follows its \(agentProvider == .claude ? "CLAUDE.md" : "AGENTS.md"). Changing the folder starts a fresh conversation; changing access keeps it, so you can switch and say “go ahead.”")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            }
+        }
+        .onAppear { refreshClaudeAccount() }
+    }
+
+    private var voiceAgentVoiceSection: some View {
+        SettingsColumns {
+            SettingsCard("How replies sound") {
+                VStack(alignment: .leading, spacing: 8) {
+                    TextEditor(text: $voiceAgentRules)
+                        .font(.body)
+                        .scrollContentBackground(.hidden)
+                        .padding(8)
+                        .frame(minHeight: 90)
+                        .background(RoundedRectangle(cornerRadius: 8).fill(Color.white.opacity(0.06)))
+                        .overlay(alignment: .topLeading) {
+                            if voiceAgentRules.isEmpty {
+                                Text("e.g. Answer in one sentence unless I ask for more. Never read file paths out loud.")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 13)
+                                    .padding(.vertical, 8)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                    Text("Added to her instructions on every command, and followed over the defaults (short spoken replies, no lists or code).")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+            SettingsCard("Voice") {
+                VStack(alignment: .leading, spacing: 8) {
+                    if VoiceAgent.ryanVoiceInstalled {
+                        SettingsField("Voice") {
+                            Picker("Voice", selection: $voiceAgentVoice) {
+                                ForEach(VoiceAgent.ReplyVoice.allCases, id: \.rawValue) { voice in
+                                    Text(voice.name).tag(voice.rawValue)
+                                }
+                            }
+                            .labelsHidden()
+                            .pickerStyle(.segmented)
+                            .frame(maxWidth: 320)
+                        }
+                    } else {
+                        Label("Heart (Kokoro), runs on this Mac", systemImage: "checkmark.circle.fill")
+                    }
+                    SettingsField("Speed") {
+                        Picker("Speed", selection: $voiceAgentSpeechSpeed) {
+                            ForEach(VoiceAgent.speechSpeeds, id: \.self) { speed in
+                                Text(String(format: "%.1f×", speed)).tag(speed)
+                            }
+                        }
+                        .labelsHidden()
+                        .pickerStyle(.segmented)
+                        .frame(maxWidth: 320)
+                    }
+                    Text("Heart downloads once (about 400 MB) the first time you use the agent. If the voice can't start, the Mac voice reads the reply instead.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+        } right: {
+            SettingsCard("Orb") {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 10) {
+                        ForEach(AgentOrbStyle.allCases, id: \.rawValue) { style in
+                            let selected = orbStyle == style.rawValue
+                            Button {
+                                orbStyle = style.rawValue
+                                orbRipple = style.ripplesByDefault
+                            } label: {
+                                VStack(spacing: 6) {
+                                    Image(style.imageName)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .padding(5)
+                                        .frame(width: 72, height: 72)
+                                        .background(RoundedRectangle(cornerRadius: 14).fill(Color.black))
+                                        .overlay(
+                                            RoundedRectangle(cornerRadius: 14)
+                                                .stroke(selected ? Color(red: 0, green: 0.82, blue: 0.73) : Color.white.opacity(0.1),
+                                                        lineWidth: selected ? 2 : 1)
+                                        )
+                                    Text(style.name)
+                                        .font(.caption)
+                                        .foregroundStyle(selected ? .primary : .secondary)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    Toggle("Ripple on each word", isOn: $orbRipple)
+                    Toggle("Show the reply in the notch", isOn: $showsReplyText)
+                    Text("With the reply off, she just talks: no teleprompter, only the orb. Changes apply from the next command.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+
+        }
+    }
+
+    private var echoActionsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            if let raycastOffer {
+                SettingsCard("Raycast Scripts Found") {
+                    HStack(spacing: 10) {
+                        Text("\(raycastOffer.count) Raycast scripts in \((raycastOffer.folder.path as NSString).abbreviatingWithTildeInPath). Use them by voice too?")
+                            .font(.callout)
+                            .lineLimit(2)
+                        Spacer()
+                        Button("Not Now") {
+                            UserDefaults.standard.set(true, forKey: EchoActions.raycastOfferedDefaultsKey)
+                            self.raycastOffer = nil
+                        }
+                        Button("Use Them") {
+                            UserDefaults.standard.set(true, forKey: EchoActions.raycastOfferedDefaultsKey)
+                            EchoActions.userFolders = echoActionFolders + [raycastOffer.folder]
+                            self.raycastOffer = nil
+                            reloadEchoActions()
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                }
+            }
+
+            SettingsCard("Your Actions") {
+                VStack(alignment: .leading, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        ForEach(echoActionFolders, id: \.path) { folder in
+                            HStack {
+                                Image(systemName: "folder")
+                                    .foregroundStyle(.secondary)
+                                Text((folder.path as NSString).abbreviatingWithTildeInPath)
+                                    .font(.caption)
+                                    .lineLimit(1)
+                                    .truncationMode(.middle)
+                                Spacer()
+                                Button("Open") {
+                                    try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                                    NSWorkspace.shared.open(folder)
+                                }
+                                if echoActionFolders.count > 1 {
+                                    Button {
+                                        EchoActions.userFolders = echoActionFolders.filter { $0 != folder }
+                                        reloadEchoActions()
+                                    } label: {
+                                        Image(systemName: "minus.circle")
+                                    }
+                                    .buttonStyle(.plain)
+                                    .foregroundStyle(.secondary)
+                                    .help("Stop using this folder. The files stay where they are.")
+                                }
+                            }
+                        }
+                    }
+
+                    HStack(spacing: 8) {
+                        Button("New Action") { createEchoAction() }
+                        Button("Add Folder...") {
+                            if let url = chooseFolder(message: "Choose a folder of Echo Actions or Raycast scripts") {
+                                EchoActions.userFolders = echoActionFolders.filter { $0 != url } + [url]
+                                reloadEchoActions()
+                            }
+                        }
+                        Button(copiedActionGuide ? "Copied" : "Copy for Your Agent") { copyEchoActionGuide() }
+                            .help("Copies how to write an Echo Action, ready to paste into Claude, ChatGPT or Codex.")
+                        Spacer()
+                    }
+
+                    Text("Hold the Voice Agent shortcut and say an action's name. One script per action, in the Raycast script command format, so Raycast scripts work too. Copy for Your Agent copies the how-to, so any AI can write new ones for you.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    let yours = echoActions.filter { !$0.isBuiltIn }
+                    if yours.isEmpty {
+                        Text("None yet. Click New Action, or ask the Voice Agent on Full: \u{201C}make me an Echo Action that opens my site.\u{201D}")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        echoActionGrid(yours)
+                    }
+                }
+            }
+
+            SettingsCard("Built-in") {
+                echoActionGrid(echoActions.filter(\.isBuiltIn))
+            }
+        }
+        .onAppear {
+            reloadEchoActions()
+            if !UserDefaults.standard.bool(forKey: EchoActions.raycastOfferedDefaultsKey) {
+                Task { raycastOffer = await EchoActions.findRaycastFolders().first }
+            }
+        }
+    }
+
+    private func echoActionGrid(_ actions: [EchoActions.Action]) -> some View {
+        LazyVGrid(columns: [GridItem(.flexible(), spacing: 16, alignment: .top), GridItem(.flexible(), spacing: 16, alignment: .top)],
+                  alignment: .leading, spacing: 10) {
+            ForEach(actions) { action in
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        Text(action.title)
+                            .font(.callout.weight(.medium))
+                            .lineLimit(1)
+                        if action.needsConfirmation { echoActionTag("Asks first") }
+                        if action.needsTyping { echoActionTag("Needs typing") }
+                    }
+                    Text(action.needsTyping ? "Has more than one input, so it can't be said."
+                         : "Say \u{201C}\(action.phrases.first ?? "")\(action.takesArgument ? " \u{2026}" : "")\u{201D}")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .help(action.summary)
+            }
+        }
+    }
+
+    private func echoActionTag(_ text: String) -> some View {
+        Text(text)
+            .font(.caption2.weight(.medium))
+            .foregroundStyle(.secondary)
+            .padding(.horizontal, 5)
+            .padding(.vertical, 1)
+            .background(Capsule().fill(Color.primary.opacity(0.08)))
+    }
+
+    private func reloadEchoActions() {
+        EchoActions.prepareDefaultFolder()
+        echoActionFolders = EchoActions.userFolders
+        echoActions = EchoActions.load()
+    }
+
+    /// Writes a starting script into the actions folder and shows it in Finder.
+    private func createEchoAction() {
+        EchoActions.prepareDefaultFolder()
+        let folder = EchoActions.defaultFolder()
+        var name = "new-action.sh"
+        var number = 2
+        while FileManager.default.fileExists(atPath: folder.appendingPathComponent(name).path) {
+            name = "new-action-\(number).sh"
+            number += 1
+        }
+        let file = folder.appendingPathComponent(name)
+        let title = number == 2 ? "New Action" : "New Action \(number - 1)"
+        do {
+            try EchoActions.template(title: title).write(to: file, atomically: true, encoding: .utf8)
+            try FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: file.path)
+        } catch {
+            return
+        }
+        if !echoActionFolders.contains(where: { $0.standardizedFileURL == folder.standardizedFileURL }) {
+            EchoActions.userFolders = echoActionFolders + [folder]
+        }
+        reloadEchoActions()
+        NSWorkspace.shared.activateFileViewerSelecting([file])
+    }
+
+    private func copyEchoActionGuide() {
+        let folder = (EchoActions.defaultFolder().path as NSString).abbreviatingWithTildeInPath
+        let text = "Build an Echo Action for Echo One that: [say what it should do]\n\n"
+            + "Save it in \(folder) and follow this guide.\n\n" + EchoActions.guideText
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
+        copiedActionGuide = true
+        Task {
+            try? await Task.sleep(nanoseconds: 2_000_000_000)
+            copiedActionGuide = false
+        }
+    }
+
+    private var voiceAgentTranscriptsSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            SettingsCard("Transcripts") {
+                VStack(alignment: .leading, spacing: 14) {
+                    HStack {
+                        Text(agentTranscriptFolder.isEmpty ? AgentTranscriptLog.defaultFolder().path : agentTranscriptFolder)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                        Button("Choose...") {
+                            if let url = chooseFolder(message: "Choose where to save Voice Agent transcripts") {
+                                agentTranscriptFolder = url.path
+                                agentTranscriptDays = AgentTranscriptLog.days()
+                                agentWeekSummary = AgentTranscriptLog.weekSummary()
+                            }
+                        }
+                        Button("Open Folder") {
+                            let folder = AgentTranscriptLog.folder()
+                            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+                            NSWorkspace.shared.open(folder)
+                        }
+                    }
+
+                    Text("One Markdown file per day, opened in TextEdit. Click a reply card to open today's.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    if let agentWeekSummary {
+                        Text(Self.usageSummary(agentWeekSummary))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if agentTranscriptDays.isEmpty {
+                        Text("Nothing yet. Hold the Voice Agent shortcut and ask something.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    } else {
+                        VStack(alignment: .leading, spacing: 0) {
+                            ForEach(agentTranscriptDays) { day in
+                                Button {
+                                    AgentTranscriptLog.openInTextEdit(day.file)
+                                } label: {
+                                    HStack {
+                                        Text(day.title)
+                                            .font(.body.weight(.medium))
+                                        Spacer()
+                                        Text(day.exchanges == 1 ? "1 exchange" : "\(day.exchanges) exchanges")
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                        Image(systemName: "arrow.up.forward.square")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                                .padding(.vertical, 9)
+                                Divider().opacity(0.15)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        .onAppear {
+            agentTranscriptDays = AgentTranscriptLog.days()
+            agentWeekSummary = AgentTranscriptLog.weekSummary()
+        }
+    }
+
+    static func usageSummary(_ week: AgentTranscriptLog.WeekSummary) -> String {
+        let commands = (week.commands == 1 ? "1 command" : "\(week.commands) commands")
+            + (week.codexCommands > 0 ? " (\(week.codexCommands) on Codex, not priced)" : "")
+        let small = week.costUSD < 0.01
+        let cost = "$" + String(format: "%.2f", week.costUSD)
+        return week.onAPIKey
+            ? "Last 7 days: \(commands), \(small ? "under $0.01" : cost) billed to your API key."
+            : "Last 7 days: \(commands), \(small ? "under $0.01" : "about " + cost) at API prices. On a Claude plan this counts toward your usage limits, not a bill."
+    }
+
     private var meetingTranscriptSection: some View {
-        VStack(alignment: .leading, spacing: 24) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Image(systemName: "flask")
                     .foregroundColor(Color.white.opacity(0.9))
@@ -1634,6 +2298,15 @@ struct SettingsView: View {
                         )
 
                         Text("Reveals the saved transcript in Finder as soon as a meeting finishes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+
+                        Toggle(
+                            "Meeting summaries",
+                            isOn: $appState.meetingSummariesEnabled
+                        )
+
+                        Text("Writes a summary of each meeting with Qwen 3.5 2B (about 1.3 GB download). Uses memory only while writing.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1887,6 +2560,132 @@ private struct ScreenRecordingRecoveryView: View {
     }
 }
 
+/// Dictation | Voice Agent switch at the top of the sidebar.
+private struct SettingsModeSwitch: View {
+    @Binding var mode: SettingsMode
+    @Namespace private var thumb
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(SettingsMode.allCases, id: \.rawValue) { item in
+                let selected = mode == item
+                Button {
+                    mode = item
+                } label: {
+                    Text(item.title)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Color.white.opacity(selected ? 0.92 : 0.50))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 6)
+                        .background {
+                            if selected {
+                                RoundedRectangle(cornerRadius: 7, style: .continuous)
+                                    .fill(Color.white.opacity(0.12))
+                                    .shadow(color: .black.opacity(0.35), radius: 1, y: 1)
+                                    .matchedGeometryEffect(id: "thumb", in: thumb)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
+        .animation(.spring(response: 0.32, dampingFraction: 0.78), value: mode)
+    }
+}
+
+/// Two columns of cards, so a page fits the window without scrolling.
+private struct SettingsColumns<Left: View, Right: View>: View {
+    @ViewBuilder let left: Left
+    @ViewBuilder let right: Right
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 12) { left }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+            VStack(alignment: .leading, spacing: 12) { right }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
+        }
+    }
+}
+
+/// Bottom of the Settings window: Donate and Star on the left, version and Quit on the right.
+private struct SettingsBottomBar: View {
+    private let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
+
+    var body: some View {
+        HStack(spacing: 8) {
+            BottomBarPill(title: "Donate", symbol: "heart.fill", tint: Color(red: 1.0, green: 0.48, blue: 0.56),
+                          url: "https://buymeacoffee.com/echoone")
+            BottomBarPill(title: "Star on GitHub", symbol: "star.fill", tint: Color(red: 1.0, green: 0.79, blue: 0.30),
+                          url: "https://github.com/hg913488/ECHO_ONE")
+            Spacer()
+            Text("Echo One \(version)")
+                .font(.system(size: 11))
+                .foregroundStyle(Color.white.opacity(0.32))
+            Rectangle()
+                .fill(Color.white.opacity(0.12))
+                .frame(width: 1, height: 14)
+            Button {
+                NSApplication.shared.terminate(nil)
+            } label: {
+                Label("Quit", systemImage: "power")
+                    .font(.system(size: 11))
+                    .foregroundStyle(Color.white.opacity(0.45))
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 4)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .keyboardShortcut("q")
+        }
+        .padding(.leading, 14)
+        .padding(.trailing, 12)
+        .padding(.vertical, 8)
+        .background(Color(red: 0.022, green: 0.042, blue: 0.060))
+        .overlay(alignment: .top) {
+            Rectangle().fill(Color.white.opacity(0.07)).frame(height: 1)
+        }
+    }
+}
+
+private struct BottomBarPill: View {
+    let title: String
+    let symbol: String
+    let tint: Color
+    let url: String
+    @State private var hovering = false
+    @State private var bounces = 0
+
+    var body: some View {
+        Button {
+            NSWorkspace.shared.open(URL(string: url)!)
+        } label: {
+            HStack(spacing: 5) {
+                Image(systemName: symbol)
+                    .foregroundStyle(tint)
+                    .symbolEffect(.bounce, value: bounces)
+                Text(title)
+                    .foregroundStyle(Color.white.opacity(0.85))
+            }
+            .font(.system(size: 11.5, weight: .medium))
+            .padding(.leading, 9)
+            .padding(.trailing, 11)
+            .padding(.vertical, 5)
+            .background(Capsule().fill(Color.white.opacity(hovering ? 0.10 : 0.05)))
+            .overlay(Capsule().stroke(Color.white.opacity(0.08), lineWidth: 1))
+            .contentShape(Capsule())
+        }
+        .buttonStyle(.plain)
+        .onHover { inside in
+            hovering = inside
+            if inside { bounces += 1 }
+        }
+    }
+}
+
 private struct SidebarNavRow: View {
     let section: SettingsSection
     let isSelected: Bool
@@ -1938,7 +2737,7 @@ private struct SettingsCard<Content: View>: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 12) {
             Text(title)
                 .font(.system(size: 10, weight: .semibold))
                 .tracking(1.6)
@@ -1947,15 +2746,15 @@ private struct SettingsCard<Content: View>: View {
 
             content
         }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 22)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .fill(Color.white.opacity(0.032))
         )
         .overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous)
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
                 .stroke(Color.white.opacity(0.07), lineWidth: 0.5)
         )
     }

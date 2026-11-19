@@ -4,4 +4,5 @@ enum ChordAction: String, CaseIterable, Codable {
     case pushToTalk
     case toggleToTalk
     case instructionMode
+    case voiceAgent
 }

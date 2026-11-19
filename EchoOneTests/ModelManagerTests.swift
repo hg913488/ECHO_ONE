@@ -12,7 +12,7 @@ final class ModelManagerTests: XCTestCase {
         )
         var attempts = 0
         let manager = ModelManager(
-            modelName: "openai_whisper-small.en",
+            modelName: "fluid_parakeet-ultra",
             modelLoadOverride: { _ in
                 attempts += 1
                 if attempts == 1 {
@@ -22,7 +22,7 @@ final class ModelManagerTests: XCTestCase {
             loadRetryDelayOverride: {}
         )
 
-        await manager.loadModel(name: "openai_whisper-small.en")
+        await manager.loadModel(name: "fluid_parakeet-ultra")
 
         XCTAssertEqual(attempts, 2)
         XCTAssertEqual(manager.state, .ready)
@@ -30,13 +30,13 @@ final class ModelManagerTests: XCTestCase {
     }
 
     func testDeleteCachedModelNotifiesObserversForInventoryRefresh() throws {
-        let manager = ModelManager(modelName: "openai_whisper-small.en")
+        let manager = ModelManager(modelName: "fluid_parakeet-ultra")
         let expectation = expectation(description: "model manager publishes cache deletion")
         var cancellable: AnyCancellable? = manager.objectWillChange.sink {
             expectation.fulfill()
         }
 
-        let model = try XCTUnwrap(SpeechModelCatalog.model(named: "openai_whisper-tiny.en"))
+        let model = try XCTUnwrap(SpeechModelCatalog.model(named: "fluid_parakeet-ultra"))
         manager.deleteCachedModel(model)
 
         wait(for: [expectation], timeout: 1.0)
@@ -46,12 +46,12 @@ final class ModelManagerTests: XCTestCase {
 
     func testDeleteCachedCurrentModelResetsReadyState() async throws {
         let manager = ModelManager(
-            modelName: "openai_whisper-small.en",
+            modelName: "fluid_parakeet-ultra",
             modelLoadOverride: { _ in }
         )
 
-        await manager.loadModel(name: "openai_whisper-small.en")
-        let model = try XCTUnwrap(SpeechModelCatalog.model(named: "openai_whisper-small.en"))
+        await manager.loadModel(name: "fluid_parakeet-ultra")
+        let model = try XCTUnwrap(SpeechModelCatalog.model(named: "fluid_parakeet-ultra"))
 
         manager.deleteCachedModel(model)
 

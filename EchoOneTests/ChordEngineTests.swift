@@ -6,6 +6,20 @@ final class ChordEngineTests: XCTestCase {
     private let rightOption = PhysicalKey(keyCode: 61)
     private let space = PhysicalKey(keyCode: 49)
     private let leftCommand = PhysicalKey(keyCode: 55)
+    private let rightShift = PhysicalKey(keyCode: 60)
+
+    func testVoiceAgentHoldsAndStopsWithoutStealingPushToTalk() throws {
+        var engine = ChordEngine(bindings: [
+            .pushToTalk: try XCTUnwrap(KeyChord(keys: Set([rightCommand, rightOption]))),
+            .voiceAgent: try XCTUnwrap(KeyChord(keys: Set([rightCommand, rightShift])))
+        ])
+
+        XCTAssertEqual(engine.handle(.flagsChanged(rightCommand)), [])
+        XCTAssertEqual(engine.handle(.flagsChanged(rightShift)), [.startRecording])
+        XCTAssertEqual(engine.activeRecordingAction, .voiceAgent)
+        XCTAssertEqual(engine.handle(.flagsChanged(rightShift)), [.stopRecording])
+        XCTAssertNil(engine.activeRecordingAction)
+    }
 
     func testPushToTalkStartsWhenChordMatchesEvenIfToggleExtendsIt() throws {
         var engine = ChordEngine(bindings: [

@@ -191,11 +191,11 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
             correctionStore: CorrectionStore(defaults: defaults),
             promptBuilder: CleanupPromptBuilder(),
             execute: { _, prompt, modelKind, _ in
-                XCTAssertEqual(modelKind, .qwen35_0_8b_q4_k_m)
+                XCTAssertEqual(modelKind, .qwen35_2b_q4_k_m)
                 XCTAssertEqual(prompt, "Base prompt")
 
                 return CleanupModelProbeRawResult(
-                    modelKind: .qwen35_0_8b_q4_k_m,
+                    modelKind: .qwen35_2b_q4_k_m,
                     modelDisplayName: "Qwen 3.5 0.8B Q4_K_M",
                     rawOutput: "Base output",
                     elapsed: 0.5
@@ -205,7 +205,7 @@ final class CleanupModelProbeRunnerTests: XCTestCase {
 
         let transcript = try! await runner.run(
             input: "Base input",
-            modelKind: .qwen35_0_8b_q4_k_m,
+            modelKind: .qwen35_2b_q4_k_m,
             thinkingMode: .suppressed,
             prompt: "Base prompt"
         )

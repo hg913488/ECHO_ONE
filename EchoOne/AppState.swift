@@ -69,17 +69,30 @@ class AppState: ObservableObject {
     @AppStorage("cleanupPrompt") var cleanupPrompt: String = TextCleaner.defaultPrompt
     @AppStorage("speechModel") var speechModel: String = SpeechModelCatalog.defaultModelID
     @AppStorage("preferredLanguage") var preferredLanguage: String = "auto"
+    @AppStorage(VoiceAgent.modelDefaultsKey) var voiceAgentModel: String = VoiceAgent.defaultModel
+    /// Claude Code or Codex (Settings → Voice Agent → Agent).
+    @AppStorage(VoiceAgent.providerDefaultsKey) var voiceAgentProvider: String = VoiceAgent.Provider.claude.rawValue
+    /// Off: the Voice Agent shortcut does nothing (Settings → Voice Agent).
+    @Published var voiceAgentEnabled: Bool = UserDefaults.standard.object(forKey: "voiceAgentEnabled") as? Bool ?? true {
+        didSet {
+            UserDefaults.standard.set(voiceAgentEnabled, forKey: "voiceAgentEnabled")
+            if !voiceAgentEnabled { voiceAgent.stopSpeaking() }
+            hotkeyMonitor.updateBindings(shortcutBindings)
+        }
+    }
     @AppStorage("meetingTranscriptEnabled") var meetingTranscriptEnabled: Bool = false
     @Published var showWhatsNew = false
     @AppStorage("meetingAutoDetectEnabled") var meetingAutoDetectEnabled: Bool = false
     @AppStorage("meetingWindowFloatsWhileRecording") var meetingWindowFloatsWhileRecording: Bool = true
     @AppStorage("openMeetingFolderOnEnd") var openMeetingFolderOnEnd: Bool = true
+    @AppStorage("meetingSummariesEnabled") var meetingSummariesEnabled: Bool = true
     @AppStorage("formFillBetaEnabled") var formFillBetaEnabled: Bool = false
     @AppStorage("meetingSummaryPrompt") var meetingSummaryPrompt: String = MeetingSummaryGenerator.finalSummaryPrompt
     @AppStorage("pauseMediaWhileRecording") var pauseMediaWhileRecording: Bool = true
     @Published private(set) var pushToTalkChord: KeyChord
     @Published private(set) var toggleToTalkChord: KeyChord
     @Published private(set) var instructionModeChord: KeyChord
+    @Published private(set) var voiceAgentChord: KeyChord
     @Published var postPasteLearningEnabled: Bool {
         didSet {
             cleanupSettingsDefaults.set(
@@ -110,6 +123,7 @@ class AppState: ObservableObject {
     })
     let hotkeyMonitor: HotkeyMonitoring
     let overlay = RecordingOverlayController()
+    private let voiceAgent = VoiceAgent()
     let textCleanupManager: TextCleanupManager
     let frontmostWindowOCRService: FrontmostWindowOCRService
     let cleanupPromptBuilder: CleanupPromptBuilder
@@ -155,6 +169,7 @@ class AppState: ObservableObject {
     private enum ActiveRecordingMode {
         case dictation
         case instructionMode
+        case voiceAgent
     }
     private var activeRecordingMode: ActiveRecordingMode = .dictation
 
@@ -196,10 +211,16 @@ class AppState: ObservableObject {
         PhysicalKey(keyCode: 62)   // Right Control
     ]))!
 
+    nonisolated static let defaultVoiceAgentChord = KeyChord(keys: Set([
+        PhysicalKey(keyCode: 54),  // Right Command
+        PhysicalKey(keyCode: 60)   // Right Shift
+    ]))!
+
     nonisolated static let defaultShortcutBindings: [ChordAction: KeyChord] = [
         .pushToTalk: defaultPushToTalkChord,
         .toggleToTalk: defaultToggleToTalkChord,
-        .instructionMode: defaultInstructionModeChord
+        .instructionMode: defaultInstructionModeChord,
+        .voiceAgent: defaultVoiceAgentChord
     ]
 
     init(
@@ -237,6 +258,7 @@ class AppState: ObservableObject {
         self.pushToTalkChord = chordBindingStore.binding(for: .pushToTalk) ?? AppState.defaultPushToTalkChord
         self.toggleToTalkChord = chordBindingStore.binding(for: .toggleToTalk) ?? AppState.defaultToggleToTalkChord
         self.instructionModeChord = chordBindingStore.binding(for: .instructionMode) ?? AppState.defaultInstructionModeChord
+        self.voiceAgentChord = chordBindingStore.binding(for: .voiceAgent) ?? AppState.defaultVoiceAgentChord
         self.textCleanupManager = textCleanupManager ?? TextCleanupManager(defaults: cleanupSettingsDefaults)
         self.frontmostWindowOCRService = frontmostWindowOCRService
         self.recordingOCRPrefetch = RecordingOCRPrefetch { [frontmostWindowOCRService] customWords in
@@ -306,6 +328,10 @@ class AppState: ObservableObject {
         // A stored model the catalog no longer offers (e.g. Qwen3-ASR) falls back to the default.
         if SpeechModelCatalog.model(named: speechModel) == nil {
             speechModel = SpeechModelCatalog.defaultModelID
+        }
+        // Parakeet only covers European languages, so a language only Whisper handled goes back to Auto.
+        if ["zh", "ja", "ko", "ar", "hi"].contains(preferredLanguage) {
+            preferredLanguage = "auto"
         }
         modelManager.customVocabularyProvider = { [correctionStore = self.correctionStore] in
             correctionStore.preferredTranscriptions
@@ -482,6 +508,36 @@ class AppState: ObservableObject {
                 await self?.stopRecordingAndTranscribe()
             }
         }
+        // Someone who uses the Voice Agent gets the voice loaded now, so the first reply after launch isn't silent
+        // while it prepares (~15 s the first time after an install, ~3 s after that).
+        if voiceAgentEnabled, !AgentTranscriptLog.days().isEmpty {
+            voiceAgent.warmUpVoice()
+        }
+        hotkeyMonitor.onVoiceAgentStart = { [weak self] in
+            Task { @MainActor in
+                guard let self else { return }
+                // The first press shows the Voice Agent notice instead of listening; after "I Understand"
+                // the next press talks. The key release finds nothing recording and does nothing.
+                guard self.voiceAgentTermsAccepted() else { return }
+                self.activeRecordingMode = .voiceAgent
+                self.voiceAgent.warmUpVoice()
+                self.voiceAgent.prepareClaude()
+                self.voiceAgent.stopSpeaking()
+                let activity = self.voiceAgent.activity
+                activity.reset()
+                self.overlay.attachVoiceActivity(activity)
+                // The orb pulses with the mic while HG talks.
+                self.audioRecorder.onLevel = { [weak activity] level in
+                    DispatchQueue.main.async { activity?.level = level }
+                }
+                await self.startRecording()
+            }
+        }
+        hotkeyMonitor.onVoiceAgentStop = { [weak self] in
+            Task { @MainActor in
+                await self?.stopRecordingAndTranscribe()
+            }
+        }
 
         hotkeyMonitor.updateBindings(shortcutBindings)
 
@@ -500,6 +556,7 @@ class AppState: ObservableObject {
 
         if hotkeyMonitor.start() {
             hotkeyMonitorStarted = true
+            startEscapeMonitor()
             status = .ready
             errorMessage = nil
         } else {
@@ -594,6 +651,7 @@ class AppState: ObservableObject {
             activeCleanupAttempted = false
             return
         }
+        voiceAgent.stopSpeaking()
 
         do {
             // Start audio capture FIRST so the engine begins recording immediately and
@@ -623,7 +681,18 @@ class AppState: ObservableObject {
             soundEffects.playStart()
             liveTranscriptionPreview = ""
             overlay.onStopTapped = { [weak self] in self?.stopRecordingIfActive() }
-            overlay.show(message: activeRecordingMode == .instructionMode ? .instructionRecording : .recording)
+            switch activeRecordingMode {
+            case .instructionMode: overlay.show(message: .instructionRecording)
+            case .voiceAgent: overlay.show(message: .agentRecording)
+            case .dictation:
+                // The dictation mark's bars move with the mic.
+                let level = overlay.dictationLevel
+                level.value = 0
+                audioRecorder.onLevel = { value in
+                    DispatchQueue.main.async { level.value = value }
+                }
+                overlay.show(message: .recording)
+            }
             isRecording = true
             status = .recording
         } catch {
@@ -666,7 +735,14 @@ class AppState: ObservableObject {
         mediaPlaybackController.resumeIfPaused()
         isRecording = false
         status = .transcribing
-        overlay.show(message: .transcribing)
+        audioRecorder.onLevel = nil
+        overlay.dictationLevel.value = 0
+        if mode == .voiceAgent {
+            voiceAgent.activity.level = 0
+            overlay.show(message: .agentThinking)
+        } else {
+            overlay.show(message: .transcribing)
+        }
 
         if mode == .instructionMode {
             let selectedText = pendingInstructionSelectedText
@@ -692,6 +768,31 @@ class AppState: ObservableObject {
 
             status = .ready
             releasePipeline(owner: .liveRecording)
+            return
+        }
+
+        if mode == .voiceAgent {
+            let rawTranscript = await transcribedTextForRecording(
+                buffer,
+                recordingSessionCoordinator: recordingSessionCoordinator,
+                recordingTranscriptionSession: recordingTranscriptionSession
+            ).rawTranscription
+
+            overlay.dismiss(ifShowing: .transcribing)
+            // Free the pipeline before waiting on Claude so dictation keeps working meanwhile.
+            status = .ready
+            releasePipeline(owner: .liveRecording)
+
+            if let rawTranscript {
+                await processAgentCommand(rawTranscript)
+            } else {
+                switch Self.emptyTranscriptionDisposition(forAudioSampleCount: buffer.count) {
+                case .cancel:
+                    overlay.dismiss()
+                case .showNoSoundDetected:
+                    overlay.show(message: .noSoundDetected)
+                }
+            }
             return
         }
 
@@ -730,12 +831,173 @@ class AppState: ObservableObject {
         releasePipeline(owner: .liveRecording)
     }
 
+    private var escapeMonitor: Any?
+
+    /// Esc stops the Voice Agent while it's working or talking. The monitor only listens, so Esc still
+    /// reaches the app in front.
+    private func startEscapeMonitor() {
+        guard escapeMonitor == nil else { return }
+        escapeMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard event.keyCode == 53 else { return }
+            Task { @MainActor in
+                guard let self, self.voiceAgent.isActive else { return }
+                self.voiceAgent.cancel()
+                self.overlay.dismiss()
+            }
+        }
+    }
+
+    /// An Echo Action that asked "… Say yes." and is waiting for the answer.
+    private var pendingEchoAction: (action: EchoActions.Action, argument: String?, asked: Date)?
+
+    private func processAgentCommand(_ transcript: String) async {
+        let model = VoiceAgent.modelLabel
+        let access = VoiceAgent.access.name
+        // Clicking the reply card stops the voice and opens today's transcript file.
+        overlay.onAgentReplyTapped = { [weak self] in
+            self?.voiceAgent.cancel()
+            self?.overlay.dismiss()
+            let file = AgentTranscriptLog.fileURL(for: Date())
+            if FileManager.default.fileExists(atPath: file.path) {
+                AgentTranscriptLog.openInTextEdit(file)
+            }
+        }
+
+        // Echo Actions run straight away; anything else goes to the agent.
+        if let pending = pendingEchoAction {
+            pendingEchoAction = nil
+            if Date().timeIntervalSince(pending.asked) < 30 {
+                if EchoActions.isYes(transcript) {
+                    EchoActions.approve(pending.action)
+                    if await runEchoAction(pending.action, argument: pending.argument, command: transcript) { return }
+                } else if EchoActions.isNo(transcript) {
+                    sayEchoActionLine("Okay, I won't.", for: transcript)
+                    return
+                }
+            }
+        }
+        if EchoActions.isStop(transcript) {
+            voiceAgent.cancel()
+            sayEchoActionLine("Stopped.", for: transcript)
+            return
+        }
+        EchoActions.prepareDefaultFolder()
+        if let (action, argument) = EchoActions.match(transcript, in: EchoActions.load()) {
+            let firstRun = EchoActions.needsFirstRunApproval(action)
+            if action.needsConfirmation || firstRun {
+                pendingEchoAction = (action, argument, Date())
+                sayEchoActionLine(firstRun ? "First time running \(action.title). Say yes to run it."
+                                           : "\(action.title)? Say yes to go ahead.", for: transcript)
+                return
+            }
+            if await runEchoAction(action, argument: argument, command: transcript) { return }
+        }
+
+        overlay.show(message: .agentThinking)
+        // The reply streams: the teleprompter shows it and Ryan starts speaking at the first full sentence,
+        // while Claude is still writing the rest. The overlay reads the growing text from voiceAgent.activity.
+        let replyMessage = OverlayMessage.agentReply(transcript)
+        var streamedText = ""
+        var replyShown = false
+        var acknowledged = false
+        voiceAgent.beginSpeaking()
+        voiceAgent.activity.access = access
+        voiceAgent.onSpeechFinished = { [weak self] in
+            self?.overlay.dismiss(ifShowing: replyMessage, after: 4)
+        }
+        do {
+            let reply = try await voiceAgent.run(transcript, onText: { [weak self] text in
+                guard let self else { return }
+                if !replyShown { self.overlay.show(message: replyMessage); replyShown = true }
+                streamedText = text
+                self.voiceAgent.updateSpeech(text)
+            }, onStep: { [weak self] step in
+                // Claude is doing something before it answers: open the notch to show it, and say "On it."
+                guard let self else { return }
+                if !replyShown { self.overlay.show(message: replyMessage); replyShown = true }
+                self.voiceAgent.activity.step = step
+                if !acknowledged, streamedText.isEmpty {
+                    acknowledged = true
+                    self.voiceAgent.acknowledge()
+                }
+            })
+            let spoken = streamedText.isEmpty ? (reply.isEmpty ? "Done." : reply) : streamedText
+            AgentTranscriptLog.append(command: transcript, reply: reply.isEmpty ? spoken : reply, model: model, access: access,
+                                      actions: voiceAgent.lastActions, usage: voiceAgent.lastUsage)
+            if !replyShown { overlay.show(message: replyMessage) }
+            voiceAgent.finishSpeech(spoken)
+        } catch is CancellationError {
+            // Stopped with "stop", Esc or the reply card, or replaced by a newer command: nothing to show.
+            AgentTranscriptLog.append(command: transcript, reply: "Stopped.", model: model, access: access,
+                                      actions: voiceAgent.lastActions)
+        } catch {
+            let message = error.localizedDescription
+            AgentTranscriptLog.append(command: transcript, reply: "Error: \(message)", model: model, access: access,
+                                      actions: voiceAgent.lastActions)
+            voiceAgent.stopSpeaking()
+            voiceAgent.activity.replyText = message
+            voiceAgent.activity.spokenCharacters = message.count  // not spoken: show it fully lit
+            overlay.show(message: replyMessage)
+            overlay.dismiss(ifShowing: replyMessage, after: 6)
+        }
+    }
+
+    /// Runs an Echo Action and says its last line. Returns false when the script handed the command
+    /// back (exit 75), so it goes to the agent instead.
+    private func runEchoAction(_ action: EchoActions.Action, argument: String?, command: String) async -> Bool {
+        let replyMessage = OverlayMessage.agentReply(command)
+        voiceAgent.beginSpeaking()
+        voiceAgent.activity.access = "Echo Action"
+        voiceAgent.activity.step = action.title
+        voiceAgent.onSpeechFinished = { [weak self] in
+            self?.overlay.dismiss(ifShowing: replyMessage, after: 4)
+        }
+        overlay.show(message: replyMessage)
+        // Most actions finish in well under a second; a slow one (a speed test) gets "On it." first.
+        let acknowledge = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            if !Task.isCancelled { self?.voiceAgent.acknowledge() }
+        }
+        let outcome = await EchoActions.run(action, argument: argument)
+        acknowledge.cancel()
+        if outcome.passToAgent {
+            voiceAgent.stopSpeaking()
+            return false
+        }
+        var reply = outcome.spoken
+        if action.mode == "fullOutput", outcome.output.contains("\n") {
+            reply += "\n\n```\n" + outcome.output + "\n```"
+        }
+        AgentTranscriptLog.append(command: command, reply: reply, model: "Echo Action", access: action.title,
+                                  actions: ["Ran \(action.title)" + (argument.map { " with \u{201C}\($0)\u{201D}" } ?? "")])
+        voiceAgent.activity.step = ""
+        if action.mode == "silent", !outcome.failed {
+            // Shown, not spoken, as in Raycast.
+            voiceAgent.stopSpeaking()
+            voiceAgent.activity.replyText = outcome.spoken
+            voiceAgent.activity.spokenCharacters = outcome.spoken.count
+            overlay.dismiss(ifShowing: replyMessage, after: 3)
+        } else {
+            voiceAgent.finishSpeech(outcome.spoken)
+        }
+        return true
+    }
+
+    /// One spoken line in the reply card, for Echo Action questions and answers.
+    private func sayEchoActionLine(_ line: String, for command: String) {
+        let replyMessage = OverlayMessage.agentReply(command)
+        voiceAgent.beginSpeaking()
+        voiceAgent.activity.access = "Echo Action"
+        voiceAgent.onSpeechFinished = { [weak self] in
+            self?.overlay.dismiss(ifShowing: replyMessage, after: 4)
+        }
+        overlay.show(message: replyMessage)
+        voiceAgent.finishSpeech(line)
+    }
+
     private func processInstructionResult(transcript: String, selectedText: String?) async {
         guard textCleanupManager.isModelDownloaded(textCleanupManager.selectedCleanupModelKind) else {
-            let pasteResult = textPaster.paste(text: transcript)
-            if pasteResult == .copiedToClipboard {
-                showClipboardFallbackMessage()
-            }
+            handlePasteResult(textPaster.paste(text: transcript), text: transcript)
             return
         }
 
@@ -756,17 +1018,11 @@ class AppState: ObservableObject {
         do {
             let result = try await textCleanupManager.clean(text: text, prompt: prompt)
             overlay.dismiss(ifShowing: .transforming)
-            let pasteResult = textPaster.paste(text: result)
-            if pasteResult == .copiedToClipboard {
-                showClipboardFallbackMessage()
-            }
+            handlePasteResult(textPaster.paste(text: result), text: result)
         } catch {
             overlay.dismiss(ifShowing: .transforming)
             // Fall back to pasting the raw transcript
-            let pasteResult = textPaster.paste(text: transcript)
-            if pasteResult == .copiedToClipboard {
-                showClipboardFallbackMessage()
-            }
+            handlePasteResult(textPaster.paste(text: transcript), text: transcript)
         }
     }
 
@@ -818,8 +1074,10 @@ class AppState: ObservableObject {
             return false
         }
 
+        // Other languages keep it: "um" is a real word in Portuguese.
+        let spoken = preferredLanguage == "auto" || preferredLanguage == "en" ? Self.removingHesitations(text) : text
         var windowContext = archivedWindowContext
-        if cleanupEnabled && canAttemptCleanup {
+        if cleanupEnabled && canAttemptCleanup && !Self.isTooShortToClean(spoken) {
             activeCleanupAttempted = true
             if frontmostWindowContextEnabled,
                windowContext == nil,
@@ -834,7 +1092,7 @@ class AppState: ObservableObject {
             recordingOCRPrefetch.cancel()
         }
 
-        let cleanupResult = await cleanedTranscriptionResult(text, windowContext: windowContext)
+        let cleanupResult = await cleanedTranscriptionResult(spoken, windowContext: windowContext)
         let finalText = cleanupResult.text
         activeCleanupAttempted = cleanupResult.attemptedCleanup
 
@@ -859,10 +1117,7 @@ class AppState: ObservableObject {
         }
 
         if shouldPaste {
-            let pasteResult = textPaster.paste(text: finalText)
-            if pasteResult == .copiedToClipboard {
-                showClipboardFallbackMessage()
-            }
+            handlePasteResult(textPaster.paste(text: finalText), text: finalText)
         }
 
         return true
@@ -963,6 +1218,16 @@ class AppState: ObservableObject {
         return result.text
     }
 
+    /// After a paste: the notch peek when Settings asks for it, otherwise the "Copied" pill if the paste had nowhere to go.
+    private func handlePasteResult(_ result: PasteResult, text: String) {
+        let pasteFailed = result == .copiedToClipboard
+        if DictationNotchMode.current.shows(pasteFailed: pasteFailed) {
+            overlay.showTranscriptPeek(text, pasteFailed: pasteFailed)
+        } else if pasteFailed {
+            showClipboardFallbackMessage()
+        }
+    }
+
     private func showClipboardFallbackMessage() {
         overlay.show(message: .clipboardFallback)
         DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { [weak self] in
@@ -1006,12 +1271,12 @@ class AppState: ObservableObject {
             Question: \(question)
             """
             // Prefer 8B model for Q&A (larger context), fall back to loaded cleanup model
-            let qaModelKind: LocalCleanupModelKind = .qwen3_8b_q4_k_m
+            let qaModelKind: LocalCleanupModelKind = .qwen35_9b_q4_k_m
             let modelToUse: LocalCleanupModelKind? = self.textCleanupManager.isModelDownloaded(qaModelKind) ? qaModelKind : nil
             do {
                 return try await self.textCleanupManager.clean(text: userInput, prompt: systemPrompt, modelKind: modelToUse)
             } catch {
-                return "Could not answer — download the Qwen 3 8B model in Settings > Models for best results."
+                return "Could not answer — download the Qwen 3.5 9B model in Settings > Models for best results."
             }
         }
         controller.onSelectCleanupModel = { [weak self] kind in
@@ -1157,6 +1422,49 @@ class AppState: ObservableObject {
             transcript.summaryError = "Summary failed: \(error.localizedDescription)"
         }
         transcript.isGeneratingSummary = false
+        // The summary loaded a cleanup model; go back to what dictation needs
+        // (nothing when cleanup is off) so it doesn't stay in memory.
+        await refreshCleanupModelState()
+    }
+
+    // MARK: - Voice Agent notice
+
+    static let termsURL = URL(string: "https://echooneapp.vercel.app/terms/")!
+    private static let voiceAgentTermsKey = "voiceAgentTermsAccepted"
+    /// Bump when the notice's wording changes in a way people should see again.
+    private static let voiceAgentTermsVersion = 1
+
+    /// True once the person has accepted the Voice Agent notice. Otherwise shows it and returns
+    /// whether they accepted just now (they then press the keys again to talk).
+    private func voiceAgentTermsAccepted() -> Bool {
+        if UserDefaults.standard.integer(forKey: Self.voiceAgentTermsKey) >= Self.voiceAgentTermsVersion { return true }
+        let alert = NSAlert()
+        alert.messageText = "Before you use the Voice Agent"
+        alert.informativeText = """
+        The Voice Agent hands what you say to the Claude Code or Codex on your Mac. Depending on the access level you pick, it can create, change, move and delete files and run commands. AI can misunderstand you or get things wrong.
+
+        • You're in charge of what you ask it to do. Check its work, and keep a backup (Time Machine works).
+        • Echo One is free and comes as is. Its maker isn't responsible for lost files or data, or for costs on your Claude or ChatGPT account.
+        • Your commands go to Anthropic or OpenAI under your own account and their terms.
+
+        After you agree, press the Voice Agent keys again to talk.
+        """
+        alert.alertStyle = .informational
+        alert.icon = NSImage(named: "AppIcon")
+        alert.addButton(withTitle: "I Understand")
+        alert.addButton(withTitle: "Not Now")
+        alert.addButton(withTitle: "Read the Terms")
+        NSApp.activate(ignoringOtherApps: true)
+        switch alert.runModal() {
+        case .alertFirstButtonReturn:
+            UserDefaults.standard.set(Self.voiceAgentTermsVersion, forKey: Self.voiceAgentTermsKey)
+            UserDefaults.standard.set(Date(), forKey: Self.voiceAgentTermsKey + "Date")
+        case .alertThirdButtonReturn:
+            NSWorkspace.shared.open(Self.termsURL)
+        default:
+            break
+        }
+        return false
     }
 
     // MARK: - Form Fill (beta)
@@ -1236,13 +1544,14 @@ class AppState: ObservableObject {
             .pushToTalk: pushToTalkChord,
             .toggleToTalk: toggleToTalkChord,
             .instructionMode: instructionModeChord
-        ]
+        ].merging(voiceAgentEnabled ? [.voiceAgent: voiceAgentChord] : [:]) { current, _ in current }
     }
 
     private func persistShortcutBindingsIfNeeded() {
         try? chordBindingStore.setBinding(pushToTalkChord, for: .pushToTalk)
         try? chordBindingStore.setBinding(toggleToTalkChord, for: .toggleToTalk)
         try? chordBindingStore.setBinding(instructionModeChord, for: .instructionMode)
+        try? chordBindingStore.setBinding(voiceAgentChord, for: .voiceAgent)
     }
 
     private var canAttemptCleanup: Bool {
@@ -1261,7 +1570,7 @@ class AppState: ObservableObject {
             return await cleanedTranscriptionResultOverride(text, windowContext)
         }
 
-        guard cleanupEnabled else {
+        guard cleanupEnabled, !Self.isTooShortToClean(text) else {
             return (text: text, prompt: cleanupPrompt, attemptedCleanup: false, cleanupUsedFallback: false)
         }
 
@@ -1283,6 +1592,50 @@ class AppState: ObservableObject {
             attemptedCleanup: canAttemptCleanup,
             cleanupUsedFallback: cleanedResult.usedFallback
         )
+    }
+
+    /// Drops "um" and "uh" (and "umm", "uhh") before cleanup, so they go even when the model is skipped or misses them.
+    /// A comma left around the filler goes with it, a full stop it carried moves to the word before, and a capital it had passes to the next word.
+    static func removingHesitations(_ text: String) -> String {
+        var words = text.split(separator: " ", omittingEmptySubsequences: true).map(String.init)
+        var index = 0
+        var removedAny = false
+        while index < words.count {
+            let word = words[index]
+            let core = word.trimmingCharacters(in: CharacterSet(charactersIn: ",.!?…"))
+            guard core.range(of: "^u+(m+|h+)$", options: [.regularExpression, .caseInsensitive]) != nil else {
+                index += 1
+                continue
+            }
+            removedAny = true
+            let trailing = word.drop(while: { $0.isLetter })
+            if index > 0 {
+                var previous = words[index - 1]
+                if trailing.contains(where: { ".!?".contains($0) }) {
+                    if !(previous.last.map { ".!?".contains($0) } ?? false) {
+                        if previous.last == "," { previous.removeLast() }
+                        previous += trailing.filter { ".!?".contains($0) }.prefix(1)
+                    }
+                } else if trailing.contains(",") && previous.last == "," {
+                    previous.removeLast()
+                }
+                words[index - 1] = previous
+            }
+            if core.first?.isUppercase == true, index + 1 < words.count {
+                let next = words[index + 1]
+                words[index + 1] = next.prefix(1).uppercased() + next.dropFirst()
+            }
+            words.remove(at: index)
+        }
+        guard removedAny, !words.isEmpty else { return text }
+        return words.joined(separator: " ")
+    }
+
+    /// One or two words have nothing to clean up, so they skip the cleanup model and paste straight away.
+    static func isTooShortToClean(_ text: String) -> Bool {
+        let words = text.split(whereSeparator: { $0.isWhitespace })
+            .filter { $0.contains { $0.isLetter || $0.isNumber } }
+        return words.count < 3
     }
 
     private var languageAwareCleanupPrompt: String {
@@ -1461,6 +1814,8 @@ class AppState: ObservableObject {
                 toggleToTalkChord = chord
             case .instructionMode:
                 instructionModeChord = chord
+            case .voiceAgent:
+                voiceAgentChord = chord
             }
 
             hotkeyMonitor.updateBindings(shortcutBindings)

@@ -247,11 +247,11 @@ final class TextCleanerTests: XCTestCase {
         _ = await cleaner.cleanWithPerformance(
             text: "raw text",
             prompt: "Base prompt",
-            modelKind: .qwen35_0_8b_q4_k_m
+            modelKind: .qwen35_2b_q4_k_m
         )
 
         let prompt = try XCTUnwrap(localBackend.cleanedInputs.first?.prompt)
-        XCTAssertEqual(localBackend.cleanedInputs.map(\.modelKind), [.qwen35_0_8b_q4_k_m])
+        XCTAssertEqual(localBackend.cleanedInputs.map(\.modelKind), [.qwen35_2b_q4_k_m])
         XCTAssertEqual(prompt, "Base prompt")
     }
 

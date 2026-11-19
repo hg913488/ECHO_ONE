@@ -34,7 +34,7 @@ final class TextCleanupManagerTests: XCTestCase {
         XCTAssertEqual(
             TextCleanupManager.cleanupModels.map(\.kind),
             [
-                .qwen35_0_8b_q4_k_m,
+                .qwen35_2b_q4_k_m,
                 .qwen35_2b_q4_k_m,
                 .qwen35_4b_q4_k_m,
             ]
@@ -53,20 +53,20 @@ final class TextCleanupManagerTests: XCTestCase {
         )
     }
 
-    func testDefaultSelectionUsesVeryFastModel() {
+    func testDefaultSelectionUsesFastModel() {
         let defaults = UserDefaults(suiteName: #function)!
         defaults.removePersistentDomain(forName: #function)
         let manager = TextCleanupManager(
             defaults: defaults,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
 
-        XCTAssertEqual(manager.selectedCleanupModelKind, .qwen35_0_8b_q4_k_m)
+        XCTAssertEqual(manager.selectedCleanupModelKind, .qwen35_2b_q4_k_m)
         XCTAssertEqual(
             manager.selectedModelKind(wordCount: 4, isQuestion: false),
-            .qwen35_0_8b_q4_k_m
+            .qwen35_2b_q4_k_m
         )
     }
 
@@ -76,40 +76,40 @@ final class TextCleanupManagerTests: XCTestCase {
         let manager = TextCleanupManager(
             defaults: defaults,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
-        manager.selectedCleanupModelKind = .qwen35_0_8b_q4_k_m
+        manager.selectedCleanupModelKind = .qwen35_2b_q4_k_m
 
         let restored = TextCleanupManager(
             defaults: defaults,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
 
-        XCTAssertEqual(restored.selectedCleanupModelKind, .qwen35_0_8b_q4_k_m)
+        XCTAssertEqual(restored.selectedCleanupModelKind, .qwen35_2b_q4_k_m)
     }
 
     func testSelectedCleanupModelReturnsChosenModelWhenReady() {
         let manager = TextCleanupManager(
-            selectedCleanupModelKind: .qwen35_0_8b_q4_k_m,
+            selectedCleanupModelKind: .qwen35_2b_q4_k_m,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
 
         XCTAssertEqual(
             manager.selectedModelKind(wordCount: 40, isQuestion: true),
-            .qwen35_0_8b_q4_k_m
+            .qwen35_2b_q4_k_m
         )
     }
 
     func testSelectedCleanupModelTreatsChosenModelAsUsableWhenAvailable() {
         let manager = TextCleanupManager(
-            selectedCleanupModelKind: .qwen35_0_8b_q4_k_m,
+            selectedCleanupModelKind: .qwen35_2b_q4_k_m,
             cleanupModelAvailabilityOverrides: [
-                .qwen35_0_8b_q4_k_m: true
+                .qwen35_2b_q4_k_m: true
             ]
         )
 
@@ -118,7 +118,7 @@ final class TextCleanupManagerTests: XCTestCase {
 
     func testSelectedCleanupModelRequiresChosenModelToBeUsable() {
         let manager = TextCleanupManager(
-            selectedCleanupModelKind: .qwen35_0_8b_q4_k_m,
+            selectedCleanupModelKind: .qwen35_2b_q4_k_m,
             cleanupModelAvailabilityOverrides: [
                 .qwen35_2b_q4_k_m: true
             ]
@@ -229,7 +229,7 @@ final class TextCleanupManagerTests: XCTestCase {
             expectation.fulfill()
         }
 
-        manager.deleteCachedModel(kind: .qwen35_0_8b_q4_k_m)
+        manager.deleteCachedModel(kind: .qwen35_2b_q4_k_m)
 
         wait(for: [expectation], timeout: 1.0)
         withExtendedLifetime(cancellable) {}

@@ -5,6 +5,8 @@ final class AudioRecorder {
     var onRecordingStarted: (() -> Void)?
     var onRecordingStopped: (() -> Void)?
     var onConvertedAudioChunk: (([Float]) -> Void)?
+    /// Mic loudness 0…1 per converted chunk (audio thread). Used by the Voice Agent orb.
+    var onLevel: ((Float) -> Void)?
 
     /// The device ID to record from. If nil, uses the system default.
     var targetDeviceID: AudioDeviceID?
@@ -12,8 +14,66 @@ final class AudioRecorder {
     /// Kept alive across recordings so AVFAudio does not have to re-run device
     /// discovery on every hotkey press. We only rebuild when the user explicitly
     /// changes the target input device or asks for an audio reset.
-    private var engine = AVAudioEngine()
+    private var engine = AVAudioEngine() {
+        didSet { observeConfigurationChanges() }
+    }
     private var configuredTargetDeviceID: AudioDeviceID?
+    /// Set when the input route or its format changes under the engine (AirPods
+    /// flip between 48 kHz and 24 kHz as apps open their mic). The next
+    /// recording rebuilds instead of starting a graph with stale formats.
+    private var needsRebuild: Bool {
+        get { rebuildLock.lock(); defer { rebuildLock.unlock() }; return _needsRebuild }
+        set { rebuildLock.lock(); _needsRebuild = newValue; rebuildLock.unlock() }
+    }
+    private var _needsRebuild = false
+    private let rebuildLock = NSLock()
+    private var configurationObserver: NSObjectProtocol?
+
+    init() {
+        observeConfigurationChanges()
+    }
+
+    deinit {
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
+    }
+
+    private func observeConfigurationChanges() {
+        if let configurationObserver {
+            NotificationCenter.default.removeObserver(configurationObserver)
+        }
+        configurationObserver = NotificationCenter.default.addObserver(
+            forName: .AVAudioEngineConfigurationChange,
+            object: engine,
+            queue: nil
+        ) { [weak self] _ in
+            Self.log("AudioRecorder: engine configuration changed; rebuilding before next recording")
+            self?.needsRebuild = true
+            // The engine stops itself on a configuration change. AirPods flip
+            // to their 24 kHz call mode a moment after the mic opens, so without
+            // a restart the rest of the recording comes back empty.
+            DispatchQueue.main.async { self?.restartCaptureIfRecording() }
+        }
+    }
+
+    /// True between a successful startRecording() and the next stopRecording().
+    private var isCapturing = false
+    private var midRecordingRestarts = 0
+
+    private func restartCaptureIfRecording() {
+        guard isCapturing, needsRebuild, midRecordingRestarts < 5 else { return }
+        midRecordingRestarts += 1
+        Self.log("AudioRecorder: input changed mid-recording; restarting capture (\(midRecordingRestarts))")
+        engine.inputNode.removeTap(onBus: 0)
+        rebuildEngine()
+        applyTargetDeviceIfNeeded()
+        do {
+            try installTapAndStartEngine()
+        } catch {
+            Self.log("AudioRecorder: mid-recording restart failed (\(error))")
+        }
+    }
     private let bufferLock = NSLock()
     private let tapStateLock = NSLock()
 
@@ -40,9 +100,36 @@ final class AudioRecorder {
 
     /// Reset the audio engine to pick up a newly selected input route.
     /// Call this after changing the microphone selection in Settings.
+    /// Only flags the rebuild: touching the engine here runs on the main thread,
+    /// and prepare() can block indefinitely while a Bluetooth headset is
+    /// switching profiles, freezing the whole UI. The next recording rebuilds.
     func resetForDeviceChange() {
-        rebuildEngine()
-        prewarm()
+        needsRebuild = true
+    }
+
+    /// Prints and appends to ~/Library/Logs/EchoOne/audio.log, so start failures can be read after the fact.
+    /// The file rolls over to audio.old.log at 1 MB.
+    private static let logQueue = DispatchQueue(label: "EchoOne.AudioRecorder.log")
+    static func log(_ message: String) {
+        print(message)
+        let line = "\(ISO8601DateFormatter().string(from: Date())) \(message)\n"
+        logQueue.async {
+            let folder = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Logs/EchoOne")
+            let file = folder.appendingPathComponent("audio.log")
+            try? FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+            if let size = (try? FileManager.default.attributesOfItem(atPath: file.path))?[.size] as? Int, size > 1_000_000 {
+                let old = folder.appendingPathComponent("audio.old.log")
+                try? FileManager.default.removeItem(at: old)
+                try? FileManager.default.moveItem(at: file, to: old)
+            }
+            if let handle = try? FileHandle(forWritingTo: file) {
+                defer { try? handle.close() }
+                _ = try? handle.seekToEnd()
+                try? handle.write(contentsOf: Data(line.utf8))
+            } else {
+                try? Data(line.utf8).write(to: file)
+            }
+        }
     }
 
     static func serializeAudioBuffer(_ samples: [Float]) throws -> Data {
@@ -123,18 +210,51 @@ final class AudioRecorder {
     /// Starts capturing audio from the targeted input device (or system default).
     /// Audio is converted to 16 kHz mono Float32 and appended to `audioBuffer`.
     func startRecording() throws {
+        isCapturing = false
         resetBuffer()
 
         engine.stop()
         engine.inputNode.removeTap(onBus: 0)
+        if needsRebuild {
+            rebuildEngine()
+        }
         applyTargetDeviceIfNeeded()
 
+        do {
+            try installTapAndStartEngine()
+        } catch {
+            // The long-lived engine goes stale when the input route changes
+            // after launch (headset plugged in, sample rate switched), and
+            // start() then fails with -10868. Rebuild once and retry.
+            Self.log("AudioRecorder: engine start failed (\(error)); rebuilding engine and retrying")
+            engine.inputNode.removeTap(onBus: 0)
+            rebuildEngine()
+            applyTargetDeviceIfNeeded()
+            do {
+                try installTapAndStartEngine()
+            } catch {
+                // The chosen mic still won't start (seen with the built-in mic selected while
+                // AirPods are the system default in call mode). Record from the system default instead.
+                guard targetDeviceID != nil else { throw error }
+                Self.log("AudioRecorder: retry on device \(targetDeviceID!) failed (\(error)); falling back to the system default input")
+                engine.inputNode.removeTap(onBus: 0)
+                targetDeviceID = nil
+                rebuildEngine()
+                try installTapAndStartEngine()
+            }
+        }
+        isCapturing = true
+        midRecordingRestarts = 0
+        onRecordingStarted?()
+    }
+
+    private func installTapAndStartEngine() throws {
         let inputNode = engine.inputNode
         // `inputFormat(forBus:)` reflects the bus's *actual* HW input format.
         // `outputFormat(forBus:)` is the downstream format and is the one that
         // can go stale. Always trust inputFormat for input nodes.
         let hwFormat = inputNode.inputFormat(forBus: 0)
-        print("AudioRecorder: input HW format = \(hwFormat), sampleRate=\(hwFormat.sampleRate), channels=\(hwFormat.channelCount)")
+        Self.log("AudioRecorder: input HW format = \(hwFormat), sampleRate=\(hwFormat.sampleRate), channels=\(hwFormat.channelCount)")
 
         guard hwFormat.sampleRate > 0, hwFormat.channelCount > 0 else {
             throw AudioRecorderError.noInputAvailable
@@ -164,7 +284,6 @@ final class AudioRecorder {
         }
 
         try engine.start()
-        onRecordingStarted?()
     }
 
     private var cachedConverter: AVAudioConverter?
@@ -174,6 +293,7 @@ final class AudioRecorder {
         engine.stop()
         engine = AVAudioEngine()
         configuredTargetDeviceID = nil
+        needsRebuild = false
     }
 
     private func applyTargetDeviceIfNeeded() {
@@ -200,12 +320,12 @@ final class AudioRecorder {
             UInt32(MemoryLayout<AudioDeviceID>.size)
         )
         if status != noErr {
-            print("AudioRecorder: failed to set device \(deviceID) on audio unit, status=\(status)")
+            Self.log("AudioRecorder: failed to set device \(deviceID) on audio unit, status=\(status)")
             return
         }
 
         configuredTargetDeviceID = deviceID
-        print("AudioRecorder: targeting device \(deviceID) directly on audio unit")
+        Self.log("AudioRecorder: targeting device \(deviceID) directly on audio unit")
     }
 
     private func converter(for sourceFormat: AVAudioFormat) -> AVAudioConverter? {
@@ -219,7 +339,7 @@ final class AudioRecorder {
         cachedConverter = converter
         cachedConverterSourceFormat = sourceFormat
         if converter == nil {
-            print("AudioRecorder: failed to create converter from \(sourceFormat) to \(targetFormat)")
+            Self.log("AudioRecorder: failed to create converter from \(sourceFormat) to \(targetFormat)")
         }
         return converter
     }
@@ -228,6 +348,7 @@ final class AudioRecorder {
     /// Waits only for the remainder of the active tap interval plus any
     /// in-flight conversion work so stop latency tracks the tap size.
     func stopRecording() async -> [Float] {
+        isCapturing = false
         let flushDelay = stopFlushDelayNanoseconds()
         if flushDelay > 0 {
             try? await Task.sleep(nanoseconds: flushDelay)
@@ -239,7 +360,7 @@ final class AudioRecorder {
         onRecordingStopped?()
 
         let result = snapshotBuffer()
-        print("AudioRecorder: stopped, buffer has \(result.count) samples (\(Double(result.count) / 16000.0)s of audio)")
+        Self.log("AudioRecorder: stopped, buffer has \(result.count) samples (\(Double(result.count) / 16000.0)s of audio)")
         if !result.isEmpty {
             let maxAmplitude = result.map { abs($0) }.max() ?? 0
             print("AudioRecorder: max amplitude = \(maxAmplitude)")
@@ -357,6 +478,11 @@ final class AudioRecorder {
 
         recordConvertedChunkArrival()
         onConvertedAudioChunk?(frames)
+        if let onLevel, !frames.isEmpty {
+            // Same scaling as onboarding's mic meter: speech RMS is typically 0.01–0.1.
+            let rms = sqrtf(frames.reduce(0) { $0 + $1 * $1 } / Float(frames.count))
+            onLevel(min(rms * 10, 1))
+        }
     }
 
     private func resetTapDrainState(bufferDurationSeconds: TimeInterval) {

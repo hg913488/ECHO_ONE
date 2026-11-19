@@ -60,7 +60,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let transcriptionResult = try await runner.rerunTranscription(
             entry: entry,
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: false,
             acquirePipeline: { true },
             releasePipeline: {}
@@ -75,7 +75,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
             releasePipeline: {}
         )
 
-        XCTAssertEqual(loadedSpeechModels, ["fluid_parakeet-v3"])
+        XCTAssertEqual(loadedSpeechModels, ["fluid_parakeet-ultra"])
         XCTAssertEqual(transcribedBuffers, [[0.1, 0.2, 0.3]])
         XCTAssertEqual(transcriptionResult.rawTranscription, "The default should be Quen three point five four b.")
         XCTAssertNil(transcriptionResult.diarizationSummary)
@@ -123,7 +123,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
         do {
             _ = try await runner.rerunTranscription(
                 entry: makeEntry(),
-                speechModelID: "fluid_parakeet-v3",
+                speechModelID: "fluid_parakeet-ultra",
                 speakerTaggingEnabled: false,
                 acquirePipeline: { false },
                 releasePipeline: {}
@@ -297,7 +297,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let result = try await runner.rerunTranscription(
             entry: entry,
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: true,
             acquirePipeline: { true },
             releasePipeline: {}
@@ -407,7 +407,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let result = try await runner.rerunTranscription(
             entry: entry,
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: true,
             acquirePipeline: { true },
             releasePipeline: {}
@@ -457,7 +457,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let result = try await runner.rerunTranscription(
             entry: makeEntry(),
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: true,
             acquirePipeline: { true },
             releasePipeline: {}
@@ -536,7 +536,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let result = try await runner.rerunTranscription(
             entry: entry,
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: true,
             acquirePipeline: { true },
             releasePipeline: {}
@@ -615,7 +615,7 @@ final class TranscriptionLabRunnerTests: XCTestCase {
 
         let result = try await runner.rerunTranscription(
             entry: entry,
-            speechModelID: "fluid_parakeet-v3",
+            speechModelID: "fluid_parakeet-ultra",
             speakerTaggingEnabled: true,
             acquirePipeline: { true },
             releasePipeline: {}

@@ -12,7 +12,7 @@ final class RuntimeModelInventoryTests: XCTestCase {
             cachedSpeechModelNames: ["openai_whisper-tiny.en"],
             cleanupState: .downloading(kind: .qwen35_4b_q4_k_m, progress: 0.4),
             selectedCleanupModelKind: .qwen35_4b_q4_k_m,
-            cachedCleanupKinds: [.qwen35_0_8b_q4_k_m, .qwen35_2b_q4_k_m]
+            cachedCleanupKinds: [.qwen35_2b_q4_k_m, .qwen35_2b_q4_k_m]
         )
 
         XCTAssertTrue(rows.map(\.name).contains("Whisper tiny.en (speed)"))
@@ -87,9 +87,9 @@ final class RuntimeModelInventoryTests: XCTestCase {
             speechModelState: .ready,
             speechDownloadProgress: nil,
             cachedSpeechModelNames: ["openai_whisper-small.en"],
-            cleanupState: .loadingModel(kind: .qwen35_0_8b_q4_k_m),
+            cleanupState: .loadingModel(kind: .qwen35_2b_q4_k_m),
             selectedCleanupModelKind: .qwen35_2b_q4_k_m,
-            cachedCleanupKinds: [.qwen35_0_8b_q4_k_m]
+            cachedCleanupKinds: [.qwen35_2b_q4_k_m]
         )
 
         XCTAssertEqual(row(named: "Qwen 3.5 0.8B Q4_K_M (Very fast)", in: rows)?.status, .loading)

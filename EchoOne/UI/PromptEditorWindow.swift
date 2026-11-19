@@ -24,7 +24,11 @@ final class PromptEditorController: NSObject, NSWindowDelegate {
         window.title = "Edit Cleanup Prompt"
         window.delegate = self
         window.isReleasedWhenClosed = false
-        window.contentViewController = NSHostingController(rootView: editor)
+        // Same fix as Settings: keep 500×400 so center() places the real size.
+        let hosting = NSHostingController(rootView: editor)
+        hosting.sizingOptions = []
+        window.contentViewController = hosting
+        window.setContentSize(NSSize(width: 500, height: 400))
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)

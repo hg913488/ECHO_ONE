@@ -12,6 +12,8 @@ protocol HotkeyMonitoring: AnyObject {
     var onToggleToTalkStop: (() -> Void)? { get set }
     var onInstructionModeStart: (() -> Void)? { get set }
     var onInstructionModeStop: (() -> Void)? { get set }
+    var onVoiceAgentStart: (() -> Void)? { get set }
+    var onVoiceAgentStop: (() -> Void)? { get set }
     func start() -> Bool
     func stop()
     func updateBindings(_ bindings: [ChordAction: KeyChord])
@@ -54,6 +56,8 @@ final class HotkeyMonitor: NSObject, HotkeyMonitoring {
     var onToggleToTalkStop: (() -> Void)?
     var onInstructionModeStart: (() -> Void)?
     var onInstructionModeStop: (() -> Void)?
+    var onVoiceAgentStart: (() -> Void)?
+    var onVoiceAgentStop: (() -> Void)?
     // MARK: - State
 
     fileprivate var eventTap: CFMachPort?
@@ -399,12 +403,14 @@ final class HotkeyMonitor: NSObject, HotkeyMonitoring {
                 }
             case .instructionMode:
                 onInstructionModeStart?()
+            case .voiceAgent:
+                onVoiceAgentStart?()
             }
         }
 
         if let restartAction = result.restartAction {
             switch restartAction {
-            case .pushToTalk, .toggleToTalk, .instructionMode:
+            case .pushToTalk, .toggleToTalk, .instructionMode, .voiceAgent:
                 onRecordingRestart?()
             }
         }
@@ -425,6 +431,8 @@ final class HotkeyMonitor: NSObject, HotkeyMonitoring {
                 }
             case .instructionMode:
                 onInstructionModeStop?()
+            case .voiceAgent:
+                onVoiceAgentStop?()
             }
         }
     }

@@ -62,12 +62,12 @@ struct ChordEngine {
 
             return []
 
-        case .instructionMode:
-            guard let instrChord = bindings[.instructionMode] else {
+        case .instructionMode, .voiceAgent:
+            guard let action = activeRecordingAction, let holdChord = bindings[action] else {
                 activeRecordingAction = nil
                 return []
             }
-            if !pressedKeys.isSuperset(of: instrChord.keys) {
+            if !pressedKeys.isSuperset(of: holdChord.keys) {
                 activeRecordingAction = nil
                 return [.stopRecording]
             }

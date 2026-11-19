@@ -28,6 +28,11 @@ targets:
       Release: Config/Signing.xcconfig
     sources:
       - EchoOne
+      - path: actions
+        type: folder
+        buildPhase: resources
+      - path: ECHO-ACTIONS.md
+        buildPhase: resources
     settings:
       base:
         INFOPLIST_FILE: EchoOne/Info.plist
@@ -47,6 +52,7 @@ targets:
       path: EchoOne/EchoOne.entitlements
       properties:
         com.apple.security.device.audio-input: true
+        com.apple.security.automation.apple-events: true
 
   EchoOneTests:
     type: bundle.unit-test

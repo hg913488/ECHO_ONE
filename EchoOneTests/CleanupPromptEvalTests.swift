@@ -202,7 +202,7 @@ final class CleanupPromptEvalTests: XCTestCase {
     /// Eval on Qwen 3.5 0.8B (Very fast) — ~57 seconds
     @MainActor
     func testEvalOnQwen35_0_8B() async throws {
-        try await runEvalSuite(modelKind: .qwen35_0_8b_q4_k_m)
+        try await runEvalSuite(modelKind: .qwen35_2b_q4_k_m)
     }
 
     /// Eval on Qwen 3.5 2B (Fast) — ~2-3 minutes

@@ -170,7 +170,7 @@ Yes. No subscription, no trial, no account. If it helps you, you can <a href="ht
 <details>
 <summary><b>What's open source?</b></summary>
 <br>
-Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its source isn't public. The public code can lag behind the released app: right now it builds 2.5.2 dictation, with the 2.6 Echo Actions runner in `EchoOne/Agent/EchoActions.swift`.
+Dictation, meetings, instruction mode and Echo Actions, under the MIT licence. The Voice Agent ships in the app, but its engine isn't public. This code builds 2.6 with a stand-in where the engine goes (`EchoOne/Agent/VoiceAgentOpenSource.swift`), so in a build from source the Voice Agent shortcut runs Echo Actions only. The public code can lag behind the released app.
 <br><br>
 </details>
 

@@ -43,14 +43,11 @@ typealias CleanupModelProbeExecutionOverride = @MainActor (
 ) async throws -> CleanupModelProbeRawResult
 
 enum CleanupModelRecommendation: Equatable {
-    case veryFast
     case fast
     case full
 
     var label: String {
         switch self {
-        case .veryFast:
-            return "Very fast"
         case .fast:
             return "Fast"
         case .full:
@@ -60,16 +57,15 @@ enum CleanupModelRecommendation: Equatable {
 }
 
 enum LocalCleanupModelKind: String, CaseIterable, Equatable, Identifiable {
-    case qwen35_0_8b_q4_k_m
     case qwen35_2b_q4_k_m
     case qwen35_4b_q4_k_m
-    case qwen3_8b_q4_k_m
+    case qwen35_9b_q4_k_m
 
     var id: String { rawValue }
 
     static var fast: LocalCleanupModelKind { .qwen35_2b_q4_k_m }
     static var full: LocalCleanupModelKind { .qwen35_4b_q4_k_m }
-    static var qa: LocalCleanupModelKind { .qwen3_8b_q4_k_m }
+    static var qa: LocalCleanupModelKind { .qwen35_9b_q4_k_m }
 }
 
 struct CleanupModelDescriptor: Equatable {
@@ -127,16 +123,6 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
     private(set) var activeLLM: LLM?
     private(set) var activeLoadedModelKind: LocalCleanupModelKind?
 
-    static let compactModel = CleanupModelDescriptor(
-        kind: .qwen35_0_8b_q4_k_m,
-        displayName: "Qwen 3.5 0.8B Q4_K_M (Very fast)",
-        sizeDescription: "~535 MB",
-        fileName: "Qwen3.5-0.8B-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
-        maxTokenCount: 2048,
-        recommendation: .veryFast
-    )
-
     static let recommendedFastModel = CleanupModelDescriptor(
         kind: .qwen35_2b_q4_k_m,
         displayName: "Qwen 3.5 2B Q4_K_M (Fast)",
@@ -158,17 +144,16 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
     )
 
     static let qaModel = CleanupModelDescriptor(
-        kind: .qwen3_8b_q4_k_m,
-        displayName: "Qwen 3 8B Q4_K_M (Q&A)",
-        sizeDescription: "~5.0 GB",
-        fileName: "Qwen3-8B-Q4_K_M.gguf",
-        url: "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
+        kind: .qwen35_9b_q4_k_m,
+        displayName: "Qwen 3.5 9B Q4_K_M (Q&A)",
+        sizeDescription: "~5.7 GB",
+        fileName: "Qwen3.5-9B-Q4_K_M.gguf",
+        url: "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
         maxTokenCount: 32768,
         recommendation: nil
     )
 
     static let cleanupModels = [
-        compactModel,
         recommendedFastModel,
         recommendedFullModel,
         qaModel,
@@ -181,11 +166,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
             return exactMatch.kind
         }
 
-        if archivedName.contains("0.8B") {
-            return .qwen35_0_8b_q4_k_m
-        }
-
-        if archivedName.contains("2B") || archivedName.contains("1.7B") {
+        if archivedName.contains("0.8B") || archivedName.contains("2B") || archivedName.contains("1.7B") {
             return .qwen35_2b_q4_k_m
         }
 
@@ -229,7 +210,7 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
         let storedKind = LocalCleanupModelKind(
             rawValue: defaults.string(forKey: Self.selectedCleanupModelDefaultsKey) ?? ""
-        ) ?? .qwen35_0_8b_q4_k_m
+        ) ?? .qwen35_2b_q4_k_m
         let initialKind = selectedCleanupModelKind ?? storedKind
         self.selectedCleanupModelKind = initialKind
         defaults.set(initialKind.rawValue, forKey: Self.selectedCleanupModelDefaultsKey)
@@ -288,8 +269,10 @@ final class TextCleanupManager: ObservableObject, TextCleaningManaging {
 
     /// The largest downloaded model, used for meeting summaries where context size
     /// matters more than speed. Falls back to the selected cleanup model.
+    /// Reversed first so that on a context-size tie the bigger model (listed later) wins.
     var summaryModelKind: LocalCleanupModelKind {
         Self.cleanupModels
+            .reversed()
             .sorted { $0.maxTokenCount > $1.maxTokenCount }
             .first { isModelDownloaded($0.kind) }?
             .kind ?? selectedCleanupModelKind

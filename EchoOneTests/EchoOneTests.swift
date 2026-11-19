@@ -12,6 +12,8 @@ private final class FakeHotkeyMonitor: HotkeyMonitoring {
     var onToggleToTalkStop: (() -> Void)?
     var onInstructionModeStart: (() -> Void)?
     var onInstructionModeStop: (() -> Void)?
+    var onVoiceAgentStart: (() -> Void)?
+    var onVoiceAgentStop: (() -> Void)?
     var onRecordingRestart: (() -> Void)?
 
     var updatedBindings: [ChordAction: KeyChord] = [:]
@@ -125,6 +127,70 @@ final class EchoOneTests: XCTestCase {
     func testClipboardFallbackOverlayMessageUsesExpectedCopy() {
         XCTAssertEqual(OverlayMessage.clipboardFallback.primaryText, "Copied to clipboard")
         XCTAssertEqual(OverlayMessage.clipboardFallback.secondaryText, "⌘V to paste")
+    }
+
+    func testDictationNotchModeDecidesWhenThePeekShows() {
+        XCTAssertTrue(DictationNotchMode.everyDictation.shows(pasteFailed: false))
+        XCTAssertTrue(DictationNotchMode.everyDictation.shows(pasteFailed: true))
+        XCTAssertFalse(DictationNotchMode.pasteFails.shows(pasteFailed: false))
+        XCTAssertTrue(DictationNotchMode.pasteFails.shows(pasteFailed: true))
+        XCTAssertFalse(DictationNotchMode.off.shows(pasteFailed: false))
+        XCTAssertFalse(DictationNotchMode.off.shows(pasteFailed: true))
+    }
+
+    func testDictationNotchModeDefaultsToPasteFails() {
+        XCTAssertEqual(DictationNotchMode.stored(nil), .pasteFails)
+        XCTAssertEqual(DictationNotchMode.stored("nonsense"), .pasteFails)
+        XCTAssertEqual(DictationNotchMode.stored("off"), .off)
+    }
+
+    func testDictationMarkStageExitTimes() {
+        let stage = DictationMarkStage()
+        stage.startRecording()
+        stage.work(word: "TRANSCRIBING", at: 100, continuing: true)
+        // Done before the bars have settled: the quick pop, no stretch.
+        XCTAssertEqual(stage.finish(at: 100.1), DictationMarkStage.pop, accuracy: 0.001)
+        XCTAssertEqual(stage.exit, .pop)
+
+        // Done mid-stretch: the stretch completes, then it fades.
+        stage.startRecording()
+        stage.work(word: "TRANSCRIBING", at: 100, continuing: true)
+        let stretchEnd = 100 + DictationMarkStage.threshold + DictationMarkStage.stretch
+        XCTAssertEqual(stage.finish(at: 100.5), stretchEnd - 100.5 + DictationMarkStage.fade, accuracy: 0.001)
+        XCTAssertEqual(stage.exit, .fade)
+
+        // Done once stretched: just the fade.
+        stage.startRecording()
+        stage.work(word: "TRANSCRIBING", at: 100, continuing: true)
+        XCTAssertEqual(stage.finish(at: 103), DictationMarkStage.fade, accuracy: 0.001)
+    }
+
+    func testDictationMarkStageWorkAfterFinishCancelsTheExit() {
+        let stage = DictationMarkStage()
+        stage.startRecording()
+        stage.work(word: "TRANSCRIBING", at: 100, continuing: true)
+        _ = stage.finish(at: 103)
+        stage.work(word: "CLEANING UP", at: 103.1, continuing: true)
+        XCTAssertNil(stage.exitStart)
+        XCTAssertEqual(stage.word, "CLEANING UP")
+        XCTAssertEqual(stage.previousWord, "TRANSCRIBING")
+    }
+
+    func testShortDictationsSkipCleanup() {
+        XCTAssertTrue(AppState.isTooShortToClean("yes"))
+        XCTAssertTrue(AppState.isTooShortToClean("sounds good"))
+        XCTAssertTrue(AppState.isTooShortToClean("  ok. "))
+        XCTAssertFalse(AppState.isTooShortToClean("send it now"))
+    }
+
+    func testRemovingHesitations() {
+        XCTAssertEqual(AppState.removingHesitations("Um, what are we doing"), "What are we doing")
+        XCTAssertEqual(AppState.removingHesitations("I was, uh, going"), "I was going")
+        XCTAssertEqual(AppState.removingHesitations("I think, um."), "I think.")
+        XCTAssertEqual(AppState.removingHesitations("So um like"), "So like")
+        XCTAssertEqual(AppState.removingHesitations("Wow. Umm, okay then"), "Wow. Okay then")
+        XCTAssertEqual(AppState.removingHesitations("uh-huh, summer"), "uh-huh, summer")
+        XCTAssertEqual(AppState.removingHesitations("um"), "um")
     }
 
     func testOverlayHostingViewDoesNotManageWindowSizingConstraints() {
@@ -365,7 +431,7 @@ final class EchoOneTests: XCTestCase {
             speechModel: SpeechModelCatalog.parakeetV3
         )
         let whisperState = RecordingSpeakerFilteringToggleState(
-            speechModel: SpeechModelCatalog.whisperSmallEnglish
+            speechModel: SpeechModelCatalog.parakeetUltra
         )
 
         XCTAssertTrue(parakeetState.isVisible)
@@ -1566,7 +1632,7 @@ final class EchoOneTests: XCTestCase {
             chordBindingStore: ChordBindingStore(defaults: defaults),
             cleanupSettingsDefaults: defaults
         )
-        appState.speechModel = SpeechModelCatalog.whisperSmallEnglish.id
+        appState.speechModel = SpeechModelCatalog.parakeetUltra.id
         appState.ignoreOtherSpeakers = true
 
         var factoryCallCount = 0

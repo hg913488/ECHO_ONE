@@ -8,29 +8,13 @@ final class SpeechTranscriberTests: XCTestCase {
         let ids = SpeechModelCatalog.availableModels.map(\.id)
         let backends = SpeechModelCatalog.availableModels.map(\.backend)
 
-        XCTAssertEqual(ids, [
-            "openai_whisper-tiny.en",
-            "openai_whisper-small.en",
-            "openai_whisper-small",
-            "fluid_parakeet-v3",
-            "fluid_parakeet-ultra",
-        ])
-        XCTAssertEqual(backends, [
-            .whisperKit,
-            .whisperKit,
-            .whisperKit,
-            .fluidAudio,
-            .fluidAudio,
-        ])
+        XCTAssertEqual(ids, ["fluid_parakeet-ultra"])
+        XCTAssertEqual(backends, [.fluidAudio])
 
         XCTAssertEqual(SpeechModelCatalog.defaultModelID, "fluid_parakeet-ultra")
     }
 
     func testFluidAudioSpeechModelsSupportSpeakerFiltering() {
-        XCTAssertFalse(SpeechModelCatalog.whisperTiny.supportsSpeakerFiltering)
-        XCTAssertFalse(SpeechModelCatalog.whisperSmallEnglish.supportsSpeakerFiltering)
-        XCTAssertFalse(SpeechModelCatalog.whisperSmallMultilingual.supportsSpeakerFiltering)
-        XCTAssertTrue(SpeechModelCatalog.parakeetV3.supportsSpeakerFiltering)
         XCTAssertTrue(SpeechModelCatalog.parakeetUltra.supportsSpeakerFiltering)
     }
 
@@ -51,7 +35,11 @@ final class SpeechTranscriberTests: XCTestCase {
         )
         XCTAssertEqual(
             SpeechModelCatalog.resolvedModelID("openai_whisper-small.en"),
-            "openai_whisper-small.en"
+            SpeechModelCatalog.defaultModelID
+        )
+        XCTAssertEqual(
+            SpeechModelCatalog.resolvedModelID("fluid_parakeet-ultra"),
+            "fluid_parakeet-ultra"
         )
     }
 
